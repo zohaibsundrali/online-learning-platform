@@ -1,30 +1,29 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth.middleware');
+const {
+  getCourses,
+  getCourse,
+  createCourse,
+  updateCourse,
+  deleteCourse,
+  enrollCourse,
+  updateProgress,
+  getCategories,
+  getPopularCourses,
+} = require('../controllers/course.controller');
+const { protect, restrictTo } = require('../middleware/auth.middleware');
 
-// Placeholder routes - will be implemented in Step 5
-router.get('/', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Course routes - coming soon',
-    data: []
-  });
-});
+// Public routes
+router.get('/', getCourses);
+router.get('/categories', getCategories);
+router.get('/popular', getPopularCourses);
+router.get('/:id', getCourse);
 
-router.get('/:id', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Course details - coming soon',
-    data: null
-  });
-});
-
-router.post('/', protect, (req, res) => {
-  res.status(201).json({
-    success: true,
-    message: 'Course created - coming soon',
-    data: null
-  });
-});
+// Protected routes
+router.post('/', protect, restrictTo('instructor', 'admin'), createCourse);
+router.put('/:id', protect, restrictTo('instructor', 'admin'), updateCourse);
+router.delete('/:id', protect, restrictTo('instructor', 'admin'), deleteCourse);
+router.post('/:id/enroll', protect, enrollCourse);
+router.put('/:id/progress', protect, updateProgress);
 
 module.exports = router;

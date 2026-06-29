@@ -11,8 +11,9 @@ const moduleSchema = new mongoose.Schema({
     required: [true, 'Module description is required'],
   },
   duration: {
-    type: Number, // in minutes
+    type: Number,
     required: true,
+    min: [1, 'Duration must be at least 1 minute'],
   },
   videoUrl: {
     type: String,
@@ -28,6 +29,10 @@ const moduleSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  order: {
+    type: Number,
+    default: 0,
+  },
 });
 
 const courseSchema = new mongoose.Schema(
@@ -37,6 +42,13 @@ const courseSchema = new mongoose.Schema(
       required: [true, 'Course title is required'],
       trim: true,
       maxlength: [100, 'Title cannot exceed 100 characters'],
+    },
+    slug: {
+      type: String,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      required: true,
     },
     description: {
       type: String,
@@ -78,6 +90,10 @@ const courseSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    instructorBio: {
+      type: String,
+      maxlength: [500, 'Instructor bio cannot exceed 500 characters'],
+    },
     modules: [moduleSchema],
     totalDuration: {
       type: Number,
@@ -108,21 +124,21 @@ const courseSchema = new mongoose.Schema(
     prerequisites: [String],
     learningObjectives: [String],
     tags: [String],
+    whatYouWillLearn: [String],
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
 
-// Calculate total duration before saving
-courseSchema.pre('save', function (next) {
-  if (this.modules && this.modules.length > 0) {
-    this.totalDuration = this.modules.reduce(
-      (total, module) => total + module.duration,
-      0
-    );
-  }
-  next();
+// Virtual for number of modules
+courseSchema.virtual('moduleCount').get(function () {
+  return this.modules ? this.modules.length : 0;
 });
+
+// Index for search
+courseSchema.index({ title: 'text', description: 'text', tags: 'text' });
 
 module.exports = mongoose.model('Course', courseSchema);
