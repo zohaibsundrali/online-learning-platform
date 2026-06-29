@@ -106,7 +106,7 @@ const logout = catchAsync(async (req, res, next) => {
 // @access  Private
 const getMe = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.user.id)
-    .populate('enrolledCourses', 'title thumbnail category level progress')
+    .populate('enrolledCourses', 'title thumbnail category level')
     .select('-password');
 
   res.status(200).json({

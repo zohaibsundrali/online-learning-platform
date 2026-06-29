@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 const userSchema = new mongoose.Schema(
   {
@@ -64,27 +65,42 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Hash password before saving
-userSchema.pre('save', async function (next) {
+// ✅ CORRECT - Using async/await WITHOUT 'next'
+userSchema.pre('save', async function() {
+  console.log('🔐 Pre-save middleware called');
+  console.log('Is password modified?', this.isModified('password'));
+  
+  // Only hash the password if it's modified (or new)
   if (!this.isModified('password')) {
-    next();
+    console.log('⏩ Password not modified, skipping');
+    return; // Just return, don't call next
   }
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
+  
+  try {
+    console.log('🔄 Hashing password...');
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    console.log('✅ Password hashed successfully');
+  } catch (error) {
+    console.error('❌ Error hashing password:', error);
+    throw error; // Throw error instead of next(error)
+  }
 });
 
 // Compare password method
-userSchema.methods.comparePassword = async function (enteredPassword) {
+userSchema.methods.comparePassword = async function(enteredPassword) {
+  if (!this.password) {
+    throw new Error('Password not set');
+  }
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
 // Generate JWT Token
-userSchema.methods.getSignedJwtToken = function () {
+userSchema.methods.getSignedJwtToken = function() {
   return jwt.sign(
     { id: this._id, email: this.email, role: this.role },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRE }
+    { expiresIn: process.env.JWT_EXPIRE || '7d' }
   );
 };
 

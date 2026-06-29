@@ -2,22 +2,23 @@
 module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
+    "./public/index.html"
   ],
   theme: {
     extend: {
       colors: {
-        background: '#4A3F40',
-        primary: '#8AA39B',
-        secondary: '#C08B5C',
-        accent: '#E07A5F',
-        text: '#DBE2DC',
-        card: '#5B4D4E',
-        border: '#6D5F60',
-      },
-      fontFamily: {
-        display: ['Playfair Display', 'serif'],
-        body: ['Poppins', 'sans-serif'],
-      },
+  background: '#FFFFFF',
+  primary: '#6D28D9',   // Rich Purple
+  secondary: '#374151', // Light Gray
+  accent: '#A855F7',    // Light Purple
+  text: '#1F1F1F',      // Near Black
+  card: '#FFFFFF',
+  border: '#E5E7EB',
+},
+     fontFamily: {
+  display: ['DM Sans', 'sans-serif'],
+  body: ['Poppins', 'sans-serif'],
+},
       borderRadius: {
         'card': '12px',
       },
