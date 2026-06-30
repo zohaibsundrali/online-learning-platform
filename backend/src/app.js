@@ -10,6 +10,7 @@ dotenv.config();
 const authRoutes = require('./routes/auth.routes');
 const courseRoutes = require('./routes/course.routes');
 const userRoutes = require('./routes/user.routes');
+const certificateRoutes = require('./routes/certificate.routes');
 
 // Import middleware
 const errorHandler = require('./middleware/error.middleware');
@@ -28,6 +29,7 @@ app.use(
 );
 
 // Routes
+app.use('/api/certificates', certificateRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/users', userRoutes);

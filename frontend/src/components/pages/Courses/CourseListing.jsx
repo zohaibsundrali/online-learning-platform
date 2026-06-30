@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Filter, Grid, List, ChevronDown } from 'lucide-react';
 import Navbar from '../../layout/Navbar/Navbar';
 import Footer from '../../layout/Footer/Footer';
@@ -19,22 +18,21 @@ const CourseListing = () => {
   });
   const [categories, setCategories] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState('grid');
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
     total: 0,
+    limit: 9,
   });
 
-  useEffect(() => {
-    fetchCourses();
-    fetchCategories();
-  }, [filters]);
-
-  const fetchCourses = async () => {
+  // ✅ Fetch courses with useCallback
+  const fetchCourses = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
         page: pagination.currentPage,
+        limit: pagination.limit,
         ...filters,
       });
       
@@ -43,9 +41,10 @@ const CourseListing = () => {
       if (response.data.success) {
         setCourses(response.data.data);
         setPagination({
-          currentPage: response.data.currentPage,
-          totalPages: response.data.totalPages,
-          total: response.data.total,
+          currentPage: response.data.currentPage || pagination.currentPage,
+          totalPages: response.data.totalPages || 1,
+          total: response.data.total || 0,
+          limit: response.data.limit || pagination.limit,
         });
       }
     } catch (error) {
@@ -53,9 +52,10 @@ const CourseListing = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.currentPage, pagination.limit, filters]);
 
-  const fetchCategories = async () => {
+  // ✅ Fetch categories with useCallback
+  const fetchCategories = useCallback(async () => {
     try {
       const response = await axiosInstance.get('/courses/categories');
       if (response.data.success) {
@@ -64,7 +64,13 @@ const CourseListing = () => {
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
-  };
+  }, []);
+
+  // ✅ Use fetchCourses and fetchCategories in useEffect
+  useEffect(() => {
+    fetchCourses();
+    fetchCategories();
+  }, [fetchCourses, fetchCategories]); // ✅ Correct dependencies
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -72,7 +78,10 @@ const CourseListing = () => {
   };
 
   const handlePageChange = (newPage) => {
-    setPagination(prev => ({ ...prev, currentPage: newPage }));
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      setPagination(prev => ({ ...prev, currentPage: newPage }));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const clearFilters = () => {
@@ -83,6 +92,44 @@ const CourseListing = () => {
       search: '',
       sort: '-createdAt',
     });
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  };
+
+  // Calculate range of items being shown
+  const startItem = (pagination.currentPage - 1) * pagination.limit + 1;
+  const endItem = Math.min(pagination.currentPage * pagination.limit, pagination.total);
+
+  // Generate page numbers with ellipsis
+  const getPageNumbers = () => {
+    const total = pagination.totalPages;
+    const current = pagination.currentPage;
+    const pages = [];
+
+    if (total <= 7) {
+      for (let i = 1; i <= total; i++) {
+        pages.push(i);
+      }
+    } else {
+      pages.push(1);
+
+      if (current > 3) {
+        pages.push('...');
+      }
+
+      for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+        if (i !== 1 && i !== total) {
+          pages.push(i);
+        }
+      }
+
+      if (current < total - 2) {
+        pages.push('...');
+      }
+
+      pages.push(total);
+    }
+
+    return pages;
   };
 
   return (
@@ -116,6 +163,32 @@ const CourseListing = () => {
                   className="w-full pl-10 pr-4 py-3 bg-card border border-border rounded-card text-text placeholder-text placeholder-opacity-40 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300"
                 />
               </div>
+            </div>
+
+            {/* View Toggle */}
+            <div className="flex items-center space-x-1 bg-card border border-border rounded-card p-1">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded transition-colors duration-300 ${
+                  viewMode === 'grid'
+                    ? 'bg-primary text-background'
+                    : 'text-text text-opacity-60 hover:text-text'
+                }`}
+                title="Grid View"
+              >
+                <Grid className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded transition-colors duration-300 ${
+                  viewMode === 'list'
+                    ? 'bg-primary text-background'
+                    : 'text-text text-opacity-60 hover:text-text'
+                }`}
+                title="List View"
+              >
+                <List className="w-5 h-5" />
+              </button>
             </div>
 
             {/* Filter Toggle */}
@@ -231,48 +304,76 @@ const CourseListing = () => {
             </div>
           ) : (
             <>
-              <div className="flex justify-between items-center mb-6">
-                <p className="text-text text-opacity-60">
-                  Showing {courses.length} of {pagination.total} courses
+              {/* Results Info */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
+                <p className="text-text text-opacity-60 text-sm">
+                  Showing <span className="font-medium text-text">{startItem}</span> -{' '}
+                  <span className="font-medium text-text">{endItem}</span> of{' '}
+                  <span className="font-medium text-text">{pagination.total}</span> courses
+                </p>
+                <p className="text-text text-opacity-40 text-xs">
+                  {pagination.totalPages} pages total
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Course Grid/List */}
+              <div className={viewMode === 'grid' 
+                ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+                : 'space-y-4'
+              }>
                 {courses.map((course) => (
-                  <CourseCard key={course._id} course={course} />
+                  <CourseCard key={course._id} course={course} viewMode={viewMode} />
                 ))}
               </div>
 
-              {/* Pagination */}
+              {/* Professional Pagination */}
               {pagination.totalPages > 1 && (
-                <div className="flex justify-center space-x-2 mt-8">
-                  <button
-                    onClick={() => handlePageChange(pagination.currentPage - 1)}
-                    disabled={pagination.currentPage === 1}
-                    className="px-4 py-2 bg-card border border-border rounded-card text-text disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-colors duration-300"
-                  >
-                    Previous
-                  </button>
-                  {[...Array(pagination.totalPages).keys()].map((num) => (
+                <div className="mt-10">
+                  <div className="flex flex-wrap items-center justify-center gap-2">
                     <button
-                      key={num + 1}
-                      onClick={() => handlePageChange(num + 1)}
-                      className={`px-4 py-2 rounded-card transition-colors duration-300 ${
-                        pagination.currentPage === num + 1
-                          ? 'bg-primary text-background'
-                          : 'bg-card border border-border text-text hover:border-primary'
-                      }`}
+                      onClick={() => handlePageChange(pagination.currentPage - 1)}
+                      disabled={pagination.currentPage === 1}
+                      className="px-4 py-2 bg-card border border-border rounded-card text-text disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-all duration-300 text-sm"
                     >
-                      {num + 1}
+                      Previous
                     </button>
-                  ))}
-                  <button
-                    onClick={() => handlePageChange(pagination.currentPage + 1)}
-                    disabled={pagination.currentPage === pagination.totalPages}
-                    className="px-4 py-2 bg-card border border-border rounded-card text-text disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-colors duration-300"
-                  >
-                    Next
-                  </button>
+                    
+                    <div className="flex items-center gap-1">
+                      {getPageNumbers().map((page, index) => (
+                        page === '...' ? (
+                          <span key={`ellipsis-${index}`} className="px-2 text-text text-opacity-40">
+                            …
+                          </span>
+                        ) : (
+                          <button
+                            key={page}
+                            onClick={() => handlePageChange(page)}
+                            className={`px-4 py-2 rounded-card transition-all duration-300 min-w-[40px] text-sm ${
+                              pagination.currentPage === page
+                                ? 'bg-primary text-background font-medium'
+                                : 'bg-card border border-border text-text hover:border-primary'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        )
+                      ))}
+                    </div>
+                    
+                    <button
+                      onClick={() => handlePageChange(pagination.currentPage + 1)}
+                      disabled={pagination.currentPage === pagination.totalPages}
+                      className="px-4 py-2 bg-card border border-border rounded-card text-text disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-all duration-300 text-sm"
+                    >
+                      Next
+                    </button>
+                  </div>
+
+                  <div className="text-center mt-4">
+                    <p className="text-xs text-text text-opacity-40">
+                      Page {pagination.currentPage} of {pagination.totalPages}
+                    </p>
+                  </div>
                 </div>
               )}
             </>

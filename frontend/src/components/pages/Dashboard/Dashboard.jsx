@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BookOpen,
@@ -34,75 +34,156 @@ const Dashboard = () => {
   });
   const [activeTab, setActiveTab] = useState('overview');
   const [error, setError] = useState(null);
+  const [downloadingCertificate, setDownloadingCertificate] = useState(null);
+  const isMounted = useRef(true);
+  const fetchCount = useRef(0);
 
-const fetchDashboardData = useCallback(async () => {
-  try {
-    setLoading(true);
-    setError(null);
+  // ✅ Fetch data function - NO toast.success inside
+  const fetchDashboardData = useCallback(async () => {
+    // Prevent multiple simultaneous fetches
+    if (fetchCount.current > 0) {
+      console.log('⏭️ Skipping duplicate fetch');
+      return;
+    }
     
-    console.log('🔄 Fetching dashboard data...');
-    const response = await axiosInstance.get('/users/enrollments');
-    console.log('📦 API Response:', response.data);
+    fetchCount.current += 1;
     
-    if (response.data && response.data.success) {
-      let courses = [];
-      if (Array.isArray(response.data.data)) {
-        courses = response.data.data;
-      } else if (response.data.data && Array.isArray(response.data.data.courses)) {
-        courses = response.data.data.courses;
-      } else if (response.data.data && Array.isArray(response.data.data.enrollments)) {
-        courses = response.data.data.enrollments;
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🔄 Fetching dashboard data... (Attempt:', fetchCount.current, ')');
+      
+      const response = await axiosInstance.get('/users/enrollments');
+      console.log('📦 API Response:', response.data);
+      
+      if (response.data && response.data.success) {
+        let courses = [];
+        if (Array.isArray(response.data.data)) {
+          courses = response.data.data;
+        } else if (response.data.data && Array.isArray(response.data.data.courses)) {
+          courses = response.data.data.courses;
+        } else if (response.data.data && Array.isArray(response.data.data.enrollments)) {
+          courses = response.data.data.enrollments;
+        }
+        
+        console.log('📚 Courses found:', courses.length);
+        
+        // ✅ Only update state if component is mounted
+        if (isMounted.current) {
+          setEnrolledCourses(courses);
+          
+          const total = courses.length;
+          const completed = courses.filter(c => c.progress === 100).length;
+          const totalHours = courses.reduce((sum, c) => sum + (c.totalDuration || 0), 0) / 60;
+          const avgProgress = total > 0 
+            ? Math.round(courses.reduce((sum, c) => sum + (c.progress || 0), 0) / total)
+            : 0;
+          
+          setStats({
+            totalCourses: total,
+            completedCourses: completed,
+            totalHours: Math.round(totalHours),
+            averageProgress: avgProgress,
+          });
+        }
+      } else {
+        const errorMsg = response.data?.message || 'Failed to load dashboard data';
+        if (isMounted.current) {
+          setError(errorMsg);
+          toast.error(errorMsg);
+        }
+      }
+    } catch (err) {
+      console.error('❌ Error fetching dashboard data:', err);
+      let errorMessage = 'Failed to load dashboard data';
+      if (err.response) {
+        errorMessage = err.response.data?.message || err.response.statusText || errorMessage;
+      } else if (err.request) {
+        errorMessage = 'No response from server. Please check your connection.';
+      } else {
+        errorMessage = err.message || errorMessage;
+      }
+      if (isMounted.current) {
+        setError(errorMessage);
+        toast.error(errorMessage);
+        setEnrolledCourses([]);
+        setStats({
+          totalCourses: 0,
+          completedCourses: 0,
+          totalHours: 0,
+          averageProgress: 0,
+        });
+      }
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+        console.log('✅ Dashboard data fetch completed, loading set to false');
+      }
+    }
+  }, [toast]); // ✅ Keep toast in dependencies but don't call toast.success
+
+  // ✅ Run only once on mount
+  useEffect(() => {
+    isMounted.current = true;
+    fetchDashboardData();
+    
+    // Cleanup
+    return () => {
+      isMounted.current = false;
+    };
+  }, []); // ✅ EMPTY dependency array - runs only once
+
+  // ✅ Certificate Download Handler
+  const handleDownloadCertificate = async (enrollmentId, courseTitle) => {
+    if (!enrollmentId) {
+      toast.error('Invalid enrollment ID');
+      return;
+    }
+
+    setDownloadingCertificate(enrollmentId);
+    const toastId = toast.loading(`Generating certificate for ${courseTitle || 'course'}...`);
+
+    try {
+      const response = await axiosInstance.get(`/certificates/${enrollmentId}`, {
+        responseType: 'blob',
+      });
+
+      const contentType = response.headers['content-type'];
+      if (!contentType || !contentType.includes('pdf')) {
+        throw new Error('Invalid certificate format');
+      }
+
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      const fileName = `certificate_${courseTitle?.replace(/\s+/g, '_') || 'course'}.pdf`;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.dismiss(toastId);
+      toast.success('🎉 Certificate downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading certificate:', error);
+      toast.dismiss(toastId);
+      
+      let errorMessage = 'Failed to download certificate';
+      if (error.response?.status === 404) {
+        errorMessage = 'Certificate not found. Please complete the course first.';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'You are not authorized to download this certificate.';
+      } else if (error.message) {
+        errorMessage = error.message;
       }
       
-      console.log('📚 Courses found:', courses.length);
-      setEnrolledCourses(courses);
-      
-      const total = courses.length;
-      const completed = courses.filter(c => c.progress === 100).length;
-      const totalHours = courses.reduce((sum, c) => sum + (c.totalDuration || 0), 0) / 60;
-      const avgProgress = total > 0 
-        ? Math.round(courses.reduce((sum, c) => sum + (c.progress || 0), 0) / total)
-        : 0;
-      
-      setStats({
-        totalCourses: total,
-        completedCourses: completed,
-        totalHours: Math.round(totalHours),
-        averageProgress: avgProgress,
-      });
-    } else {
-      const errorMsg = response.data?.message || 'Failed to load dashboard data';
-      setError(errorMsg);
-      toast.error(errorMsg);
+      toast.error(errorMessage);
+    } finally {
+      setDownloadingCertificate(null);
     }
-  } catch (err) {
-    console.error('❌ Error fetching dashboard data:', err);
-    let errorMessage = 'Failed to load dashboard data';
-    if (err.response) {
-      errorMessage = err.response.data?.message || err.response.statusText || errorMessage;
-    } else if (err.request) {
-      errorMessage = 'No response from server. Please check your connection.';
-    } else {
-      errorMessage = err.message || errorMessage;
-    }
-    setError(errorMessage);
-    toast.error(errorMessage);
-    setEnrolledCourses([]);
-    setStats({
-      totalCourses: 0,
-      completedCourses: 0,
-      totalHours: 0,
-      averageProgress: 0,
-    });
-  } finally {
-    setLoading(false);
-    console.log('✅ Dashboard data fetch completed');
-  }
-}, []); // ✅ Remove toast from dependencies - EMPTY ARRAY
-
-useEffect(() => {
-  fetchDashboardData();
-}, [fetchDashboardData]); // ✅ This will only run once now
+  };
 
   const handleLogout = async () => {
     try {
@@ -125,7 +206,10 @@ useEffect(() => {
             <h2 className="text-2xl font-bold text-text mb-2">Something went wrong</h2>
             <p className="text-text text-opacity-60 mb-6">{error}</p>
             <button
-              onClick={fetchDashboardData}
+              onClick={() => {
+                fetchCount.current = 0;
+                fetchDashboardData();
+              }}
               className="btn-primary"
             >
               Try Again
@@ -335,6 +419,25 @@ useEffect(() => {
                               style={{ width: `${course.progress || 0}%` }}
                             />
                           </div>
+                          {course.progress === 100 && (
+                            <button
+                              onClick={() => handleDownloadCertificate(course.enrollmentId, course.title)}
+                              disabled={downloadingCertificate === course.enrollmentId}
+                              className="mt-2 text-xs bg-accent text-background px-3 py-1 rounded-full hover:bg-opacity-90 transition-all duration-300 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {downloadingCertificate === course.enrollmentId ? (
+                                <>
+                                  <LoadingSpinner size="sm" />
+                                  <span>Generating...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Award className="w-3 h-3" />
+                                  <span>Get Certificate</span>
+                                </>
+                              )}
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -464,7 +567,7 @@ useEffect(() => {
                             />
                           </div>
                         </div>
-                        <div className="flex items-center space-x-3 mt-2">
+                        <div className="flex items-center space-x-3 mt-2 flex-wrap gap-2">
                           {course.progress === 100 ? (
                             <span className="flex items-center space-x-1 text-xs text-accent">
                               <Award className="w-3 h-3" />
@@ -487,6 +590,25 @@ useEffect(() => {
                           >
                             Continue →
                           </Link>
+                          {course.progress === 100 && (
+                            <button
+                              onClick={() => handleDownloadCertificate(course.enrollmentId, course.title)}
+                              disabled={downloadingCertificate === course.enrollmentId}
+                              className="text-xs bg-accent text-background px-3 py-1 rounded-full hover:bg-opacity-90 transition-all duration-300 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {downloadingCertificate === course.enrollmentId ? (
+                                <>
+                                  <LoadingSpinner size="sm" />
+                                  <span>Generating...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Award className="w-3 h-3" />
+                                  <span>Get Certificate</span>
+                                </>
+                              )}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -534,8 +656,29 @@ useEffect(() => {
                             />
                           </div>
                         </div>
-                        {course.progress === 100 && (
-                          <CheckCircle className="w-5 h-5 text-accent" />
+                        {course.progress === 100 ? (
+                          <div className="flex items-center space-x-2">
+                            <CheckCircle className="w-5 h-5 text-accent" />
+                            <button
+                              onClick={() => handleDownloadCertificate(course.enrollmentId, course.title)}
+                              disabled={downloadingCertificate === course.enrollmentId}
+                              className="text-xs bg-accent text-background px-3 py-1 rounded-full hover:bg-opacity-90 transition-all duration-300 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {downloadingCertificate === course.enrollmentId ? (
+                                <>
+                                  <LoadingSpinner size="sm" />
+                                  <span>Generating...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Award className="w-3 h-3" />
+                                  <span>Get Certificate</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        ) : (
+                          <CheckCircle className="w-5 h-5 text-text text-opacity-20" />
                         )}
                       </div>
                     </div>

@@ -4,10 +4,17 @@ const { protect } = require('../middleware/auth.middleware');
 const User = require('../models/User.model');
 const Enrollment = require('../models/Enrollment.model');
 const catchAsync = require('../utils/catchAsync');
+const upload = require('../middleware/upload.middleware');
+const { uploadAvatar, removeAvatar } = require('../controllers/user.controller');
+
+//Avator Routes
+router.post('/upload-avatar', protect, upload.single('avatar'), uploadAvatar);
+router.delete('/avatar', protect, removeAvatar);
 
 // @desc    Get user enrollments
 // @route   GET /api/users/enrollments
 // @access  Private
+
 router.get('/enrollments', protect, catchAsync(async (req, res, next) => {
   const enrollments = await Enrollment.find({ 
     user: req.user.id,
