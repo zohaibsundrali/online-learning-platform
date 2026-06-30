@@ -50,9 +50,12 @@ class ProgressService {
   /**
    * Mark a module as completed
    */
-  static async markModuleCompleted(enrollmentId, moduleId) {
-    const enrollment = await Enrollment.findById(enrollmentId)
-      .populate('course');
+  /**
+ * Mark a module as completed - FIXED
+ */
+static async markModuleCompleted(enrollmentId, moduleId) {
+  try {
+    const enrollment = await Enrollment.findById(enrollmentId);
 
     if (!enrollment) {
       throw new Error('Enrollment not found');
@@ -80,7 +83,11 @@ class ProgressService {
 
     // Recalculate progress
     return await this.calculateProgress(enrollmentId);
+  } catch (error) {
+    console.error('❌ markModuleCompleted error:', error);
+    throw error;
   }
+}
 
   /**
    * Get the next incomplete module - FIXED

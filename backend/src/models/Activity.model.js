@@ -1,52 +1,36 @@
 const mongoose = require('mongoose');
 
-/**
- * Activity Model - Tracks user activities and events
- * Used for:
- * - Recent activity timeline on dashboard
- * - User engagement tracking
- * - Learning progress events
- * - Notification system (future)
- */
 const activitySchema = new mongoose.Schema(
   {
-    // User who performed the activity
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
       index: true,
     },
-    
-    // Type of activity
     type: {
       type: String,
       enum: [
-        'course_enrolled',      // Student enrolled in a course
-        'module_completed',     // Student completed a module/lesson
-        'course_completed',     // Student completed the entire course
-        'review_posted',        // Student posted a course review
-        'achievement_unlocked', // Student unlocked an achievement/badge
-        'profile_updated',      // Student updated their profile
-        'course_created',       // Instructor created a new course
-        'course_published',     // Instructor published a course
-        'certificate_downloaded', // Student downloaded their certificate
+        'course_enrolled',
+        'module_completed',
+        'course_completed',
+        'review_posted',
+        'achievement_unlocked',
+        'profile_updated',
+        'course_created',
+        'course_published',
+        'certificate_downloaded',
       ],
       required: true,
       index: true,
     },
-    
-    // Human-readable description of the activity
     description: {
       type: String,
       required: true,
       trim: true,
       maxlength: [500, 'Description cannot exceed 500 characters'],
     },
-    
-    // Additional metadata for context
     metadata: {
-      // Course related metadata
       courseId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Course',
@@ -55,8 +39,6 @@ const activitySchema = new mongoose.Schema(
         type: String,
         trim: true,
       },
-      
-      // Module related metadata
       moduleId: {
         type: mongoose.Schema.Types.ObjectId,
       },
@@ -64,8 +46,6 @@ const activitySchema = new mongoose.Schema(
         type: String,
         trim: true,
       },
-      
-      // Review related metadata
       reviewId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Review',
@@ -75,36 +55,26 @@ const activitySchema = new mongoose.Schema(
         min: 1,
         max: 5,
       },
-      
-      // Achievement related metadata
       achievementId: {
         type: String,
       },
       achievementName: {
         type: String,
       },
-      
-      // Flexible metadata for future use
       extra: {
         type: mongoose.Schema.Types.Mixed,
         default: {},
       },
     },
-    
-    // Whether the user has seen/read this activity
     read: {
       type: Boolean,
       default: false,
       index: true,
     },
-    
-    // IP address (for analytics)
     ipAddress: {
       type: String,
       default: null,
     },
-    
-    // User agent (for analytics)
     userAgent: {
       type: String,
       default: null,
@@ -117,13 +87,13 @@ const activitySchema = new mongoose.Schema(
   }
 );
 
-// Compound indexes for efficient queries
+// Indexes
 activitySchema.index({ user: 1, createdAt: -1 });
 activitySchema.index({ user: 1, read: 1 });
 activitySchema.index({ type: 1, createdAt: -1 });
 activitySchema.index({ 'metadata.courseId': 1, createdAt: -1 });
 
-// Virtual to get time ago
+// Virtuals
 activitySchema.virtual('timeAgo').get(function () {
   const now = new Date();
   const diff = Math.floor((now - this.createdAt) / 1000);
@@ -137,7 +107,6 @@ activitySchema.virtual('timeAgo').get(function () {
   return `${Math.floor(diff / 31536000)}y ago`;
 });
 
-// Virtual to get activity icon type
 activitySchema.virtual('iconType').get(function () {
   const iconMap = {
     'course_enrolled': 'book-open',
@@ -153,7 +122,6 @@ activitySchema.virtual('iconType').get(function () {
   return iconMap[this.type] || 'activity';
 });
 
-// Virtual to get activity color
 activitySchema.virtual('color').get(function () {
   const colorMap = {
     'course_enrolled': '#8AA39B',
@@ -169,11 +137,10 @@ activitySchema.virtual('color').get(function () {
   return colorMap[this.type] || '#DBE2DC';
 });
 
-// Static method to create activity with common patterns
+// ✅ FIXED: Static methods
 activitySchema.statics.logActivity = async function(data) {
   const { user, type, description, metadata = {}, ipAddress = null, userAgent = null } = data;
   
-  // Validate required fields
   if (!user || !type || !description) {
     throw new Error('User, type, and description are required');
   }
@@ -190,7 +157,6 @@ activitySchema.statics.logActivity = async function(data) {
   return await activity.save();
 };
 
-// Static method to get recent activities for a user
 activitySchema.statics.getRecentActivities = async function(userId, limit = 10) {
   return await this.find({ user: userId })
     .sort({ createdAt: -1 })
@@ -198,7 +164,6 @@ activitySchema.statics.getRecentActivities = async function(userId, limit = 10) 
     .lean();
 };
 
-// Static method to get unread count for a user
 activitySchema.statics.getUnreadCount = async function(userId) {
   return await this.countDocuments({
     user: userId,
@@ -206,7 +171,6 @@ activitySchema.statics.getUnreadCount = async function(userId) {
   });
 };
 
-// Static method to mark all activities as read
 activitySchema.statics.markAllAsRead = async function(userId) {
   return await this.updateMany(
     { user: userId, read: false },
@@ -214,16 +178,22 @@ activitySchema.statics.markAllAsRead = async function(userId) {
   );
 };
 
-// Pre-save middleware to ensure metadata has course info when available
+// ✅ FIXED: Pre-save middleware - properly call next()
 activitySchema.pre('save', function(next) {
-  // If the description contains a course title, extract it
-  if (!this.metadata.courseTitle && this.description.includes('"')) {
-    const match = this.description.match(/"([^"]+)"/);
-    if (match) {
-      this.metadata.courseTitle = match[1];
+  try {
+    // If the description contains a course title, extract it
+    if (!this.metadata.courseTitle && this.description) {
+      const match = this.description.match(/"([^"]+)"/);
+      if (match) {
+        this.metadata.courseTitle = match[1];
+      }
     }
+    // ✅ Always call next() to continue
+    next();
+  } catch (error) {
+    // ✅ Pass error to next if something goes wrong
+    next(error);
   }
-  next();
 });
 
 module.exports = mongoose.model('Activity', activitySchema);

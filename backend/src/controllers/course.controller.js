@@ -165,68 +165,94 @@ const deleteCourse = catchAsync(async (req, res, next) => {
 // @desc    Enroll in course - FIXED
 // @route   POST /api/courses/:id/enroll
 // @access  Private
+// @desc    Enroll in course - COMPLETELY FIXED
+// @route   POST /api/courses/:id/enroll
+// @access  Private
+// @desc    Enroll in course - COMPLETELY FIXED
+// @route   POST /api/courses/:id/enroll
+// @access  Private
 const enrollCourse = catchAsync(async (req, res, next) => {
-  const courseId = req.params.id;
-  const userId = req.user.id;
+  try {
+    const courseId = req.params.id;
+    const userId = req.user.id;
 
-  // Find the course
-  const course = await Course.findById(courseId);
-  if (!course) {
-    return next(new AppError('Course not found', 404));
+    console.log(`📚 Enrolling user ${userId} in course ${courseId}`);
+
+    // Find the course
+    const course = await Course.findById(courseId).select('_id title studentsEnrolled');
+    if (!course) {
+      console.log('❌ Course not found:', courseId);
+      return next(new AppError('Course not found', 404));
+    }
+
+    // Check if already enrolled
+    const existingEnrollment = await Enrollment.findOne({
+      user: userId,
+      course: courseId,
+    });
+
+    if (existingEnrollment) {
+      console.log('⚠️ User already enrolled in this course');
+      return next(new AppError('Already enrolled in this course', 400));
+    }
+
+    // ✅ FIX: Create enrollment WITHOUT populating or validating course
+    const enrollment = await Enrollment.create({
+      user: userId,
+      course: courseId,
+      progress: 0,
+      completedModules: [],
+      status: 'active',
+      lastAccessedAt: new Date(),
+    });
+    console.log('✅ Enrollment created:', enrollment._id);
+
+    // Add course to user's enrolled courses
+    await User.findByIdAndUpdate(userId, {
+      $addToSet: { enrolledCourses: courseId },
+    });
+
+    // Increment students enrolled count
+    course.studentsEnrolled += 1;
+    await course.save();
+
+    // ✅ FIX: Create activity with proper error handling
+    try {
+      await Activity.create({
+        user: userId,
+        type: 'course_enrolled',
+        description: `Enrolled in "${course.title}"`,
+        metadata: {
+          courseId: course._id,
+          courseTitle: course.title,
+        },
+      });
+    } catch (activityError) {
+      console.error('⚠️ Activity creation failed but enrollment succeeded:', activityError.message);
+      // Don't fail the enrollment if activity creation fails
+    }
+
+    console.log('✅ Enrollment completed successfully');
+
+    return res.status(201).json({
+      success: true,
+      message: 'Successfully enrolled in course',
+      data: {
+        enrollmentId: enrollment._id,
+        courseId: course._id,
+        courseTitle: course.title,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Enrollment error:', error);
+    // ✅ Handle validation errors properly
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(e => e.message);
+      return next(new AppError(`Validation error: ${messages.join(', ')}`, 400));
+    }
+    return next(new AppError(error.message || 'Failed to enroll in course', 500));
   }
-
-  // Check if already enrolled
-  const existingEnrollment = await Enrollment.findOne({
-    user: userId,
-    course: courseId,
-  });
-
-  if (existingEnrollment) {
-    return next(new AppError('Already enrolled in this course', 400));
-  }
-
-  // Create enrollment with explicit fields
-  const enrollment = new Enrollment({
-    user: userId,
-    course: courseId,
-    progress: 0,
-    completedModules: [],
-    status: 'active',
-    lastAccessedAt: new Date(),
-  });
-  await enrollment.save();
-
-  // Add course to user's enrolled courses
-  await User.findByIdAndUpdate(userId, {
-    $addToSet: { enrolledCourses: courseId },
-  });
-
-  // Increment students enrolled count
-  course.studentsEnrolled += 1;
-  await course.save();
-
-  // Create activity for enrollment
-  await Activity.create({
-    user: userId,
-    type: 'course_enrolled',
-    description: `Enrolled in "${course.title}"`,
-    metadata: {
-      courseId: course._id,
-      courseTitle: course.title,
-    },
-  });
-
-  res.status(201).json({
-    success: true,
-    message: 'Successfully enrolled in course',
-    data: {
-      enrollmentId: enrollment._id,
-      courseId: course._id,
-      courseTitle: course.title,
-    },
-  });
 });
-
 // @desc    Update course progress
 // @route   PUT /api/courses/:id/progress
 // @access  Private

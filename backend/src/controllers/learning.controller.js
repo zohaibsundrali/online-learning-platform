@@ -30,94 +30,125 @@ const getLearningData = catchAsync(async (req, res, next) => {
 // @desc    Mark module as completed
 // @route   PUT /api/learning/:enrollmentId/module/:moduleId/complete
 // @access  Private
+// @desc    Mark module as completed - COMPLETELY FIXED
+// @route   PUT /api/learning/:enrollmentId/module/:moduleId/complete
+// @access  Private
+// @desc    Mark module as completed - COMPLETELY FIXED
+// @route   PUT /api/learning/:enrollmentId/module/:moduleId/complete
+// @access  Private
 const markModuleComplete = catchAsync(async (req, res, next) => {
-  const { enrollmentId, moduleId } = req.params;
+  try {
+    const { enrollmentId, moduleId } = req.params;
 
-  // Verify enrollment belongs to user
-  const enrollment = await Enrollment.findById(enrollmentId);
-  if (!enrollment) {
-    return next(new AppError('Enrollment not found', 404));
-  }
+    console.log(`📚 Marking module ${moduleId} as complete for enrollment ${enrollmentId}`);
 
-  if (enrollment.user.toString() !== req.user.id) {
-    return next(new AppError('Unauthorized', 403));
-  }
+    // Verify enrollment belongs to user
+    const enrollment = await Enrollment.findById(enrollmentId);
+    if (!enrollment) {
+      console.log('❌ Enrollment not found:', enrollmentId);
+      return next(new AppError('Enrollment not found', 404));
+    }
 
-  // Get populated enrollment for module verification
-  const populatedEnrollment = await Enrollment.findById(enrollmentId)
-    .populate('course');
-  
-  if (!populatedEnrollment) {
-    return next(new AppError('Enrollment not found', 404));
-  }
+    if (enrollment.user.toString() !== req.user.id) {
+      console.log('❌ Unauthorized access to enrollment');
+      return next(new AppError('Unauthorized', 403));
+    }
 
-  const course = populatedEnrollment.course;
-  
-  if (!course || !course.modules || course.modules.length === 0) {
-    return next(new AppError('Course modules not found', 404));
-  }
+    // Get populated enrollment for module verification
+    const populatedEnrollment = await Enrollment.findById(enrollmentId)
+      .populate('course');
+    
+    if (!populatedEnrollment) {
+      console.log('❌ Populated enrollment not found');
+      return next(new AppError('Enrollment not found', 404));
+    }
 
-  // Verify module belongs to course
-  const moduleExists = course.modules.some(
-    m => m._id.toString() === moduleId
-  );
+    const course = populatedEnrollment.course;
+    
+    if (!course || !course.modules || course.modules.length === 0) {
+      console.log('❌ Course modules not found');
+      return next(new AppError('Course modules not found', 404));
+    }
 
-  if (!moduleExists) {
-    return next(new AppError('Module not found in this course', 404));
-  }
+    // Verify module belongs to course
+    const moduleExists = course.modules.some(
+      m => m._id.toString() === moduleId
+    );
 
-  // Mark module as completed using the service
-  const progressData = await ProgressService.markModuleCompleted(
-    enrollmentId,
-    moduleId
-  );
+    if (!moduleExists) {
+      console.log('❌ Module not found in course');
+      return next(new AppError('Module not found in this course', 404));
+    }
 
-  // Find the module for activity creation
-  const module = course.modules.find(m => m._id.toString() === moduleId);
-  
-  // Create activity for module completion
-  if (module) {
-    await Activity.create({
-      user: req.user.id,
-      type: 'module_completed',
-      description: `Completed "${module.title}" in "${course.title}"`,
-      metadata: {
-        courseId: course._id,
-        courseTitle: course.title,
-        moduleId: moduleId,
-        moduleTitle: module.title,
+    // Mark module as completed using the service
+    const progressData = await ProgressService.markModuleCompleted(
+      enrollmentId,
+      moduleId
+    );
+    console.log('✅ Module marked as completed, progress:', progressData.progress);
+
+    // Find the module for activity creation
+    const module = course.modules.find(m => m._id.toString() === moduleId);
+    
+    // ✅ FIX: Create activity with proper error handling
+    if (module) {
+      try {
+        await Activity.create({
+          user: req.user.id,
+          type: 'module_completed',
+          description: `Completed "${module.title}" in "${course.title}"`,
+          metadata: {
+            courseId: course._id,
+            courseTitle: course.title,
+            moduleId: moduleId,
+            moduleTitle: module.title,
+          },
+        });
+        console.log('✅ Activity created for module completion');
+      } catch (activityError) {
+        console.error('⚠️ Activity creation failed:', activityError.message);
+        // Don't fail the module completion if activity creation fails
+      }
+    }
+
+    // If course is now completed, create completion activity
+    if (progressData.isCompleted) {
+      try {
+        await Activity.create({
+          user: req.user.id,
+          type: 'course_completed',
+          description: `Completed "${course.title}"`,
+          metadata: {
+            courseId: course._id,
+            courseTitle: course.title,
+          },
+        });
+        console.log('🎉 Course completed!');
+      } catch (activityError) {
+        console.error('⚠️ Course completion activity failed:', activityError.message);
+      }
+    }
+
+    // Get next module for continuation
+    const nextModule = await ProgressService.getNextModule(enrollmentId);
+
+    console.log('✅ Mark module complete response sent');
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        progress: progressData.progress,
+        completedCount: progressData.completedCount,
+        totalModules: progressData.totalModules,
+        isCompleted: progressData.isCompleted,
+        nextModule: nextModule || null,
       },
     });
+  } catch (error) {
+    console.error('❌ Mark module complete error:', error);
+    return next(new AppError(error.message || 'Failed to mark module as completed', 500));
   }
-
-  // If course is now completed, create completion activity
-  if (progressData.isCompleted) {
-    await Activity.create({
-      user: req.user.id,
-      type: 'course_completed',
-      description: `Completed "${course.title}"`,
-      metadata: {
-        courseId: course._id,
-        courseTitle: course.title,
-      },
-    });
-  }
-
-  // Get next module for continuation
-  const nextModule = await ProgressService.getNextModule(enrollmentId);
-
-  res.status(200).json({
-    success: true,
-    data: {
-      progress: progressData.progress,
-      completedCount: progressData.completedCount,
-      totalModules: progressData.totalModules,
-      isCompleted: progressData.isCompleted,
-      nextModule: nextModule || null,
-    },
-  });
 });
-
 // @desc    Update last accessed module
 // @route   PUT /api/learning/:enrollmentId/position
 // @access  Private
