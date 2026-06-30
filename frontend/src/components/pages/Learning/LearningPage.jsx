@@ -1,13 +1,11 @@
-import React, { useState, useEffect, useRef,useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  
   Menu,
   X,
   ArrowLeft,
   BookOpen,
 } from 'lucide-react';
-
 import { useToast } from '../../common/Toast/ToastProvider';
 import LoadingSpinner from '../../common/LoadingSpinner/LoadingSpinner';
 import axiosInstance from '../../../api/axios';
@@ -21,7 +19,6 @@ import LessonControls from './LessonControls';
 const LearningPage = () => {
   const { enrollmentId } = useParams();
   const navigate = useNavigate();
-  
   const toast = useToast();
   
   const [loading, setLoading] = useState(true);
@@ -37,6 +34,8 @@ const LearningPage = () => {
   const [downloadingCertificate, setDownloadingCertificate] = useState(false);
 
   const videoRef = useRef(null);
+  // ✅ Use ref to prevent multiple fetches
+  const hasFetched = useRef(false);
 
   // Check if mobile
   useEffect(() => {
@@ -53,43 +52,56 @@ const LearningPage = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  
-
-  const fetchLearningData = useCallback(async () => {
-  setLoading(true);
-
-  try {
-    const response = await axiosInstance.get(`/learning/${enrollmentId}`);
-
-    if (response.data.success) {
-      const data = response.data.data;
-
-      setLearningData(data);
-      setModules(data.modules);
-      setProgress(data.enrollment.progress);
-      setIsCourseCompleted(data.enrollment.status === "completed");
-
-      if (data.currentModule) {
-        setCurrentModule(data.currentModule);
-        setCurrentIndex(data.currentModuleIndex);
-      } else if (data.modules.length > 0) {
-        setCurrentModule(data.modules[0]);
-        setCurrentIndex(0);
-      }
+  // ✅ Fetch learning data - using ref to prevent multiple calls
+  const fetchLearningData = async () => {
+    // ✅ Prevent multiple fetches
+    if (hasFetched.current) {
+      console.log('⏭️ Learning data already fetched, skipping...');
+      return;
     }
-  } catch (error) {
-    console.error("Error fetching learning data:", error);
-    toast.error("Failed to load course content");
-    navigate("/dashboard");
-  } finally {
-    setLoading(false);
-  }
-}, [enrollmentId, navigate, toast]);
 
-useEffect(() => {
-  fetchLearningData();
-}, [fetchLearningData]);
+    hasFetched.current = true;
+    setLoading(true);
 
+    try {
+      console.log('🔄 Fetching learning data...');
+      const response = await axiosInstance.get(`/learning/${enrollmentId}`);
+
+      if (response.data.success) {
+        const data = response.data.data;
+
+        setLearningData(data);
+        setModules(data.modules);
+        setProgress(data.enrollment.progress);
+        setIsCourseCompleted(data.enrollment.status === "completed");
+
+        if (data.currentModule) {
+          setCurrentModule(data.currentModule);
+          setCurrentIndex(data.currentModuleIndex);
+        } else if (data.modules.length > 0) {
+          setCurrentModule(data.modules[0]);
+          setCurrentIndex(0);
+        }
+        console.log('✅ Learning data fetched successfully');
+      }
+    } catch (error) {
+      console.error("❌ Error fetching learning data:", error);
+      toast.error("Failed to load course content");
+      navigate("/dashboard");
+      // ✅ Reset flag on error so retry is possible
+      hasFetched.current = false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Fetch learning data only once
+  // ✅ eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (enrollmentId) {
+      fetchLearningData();
+    }
+  }, [enrollmentId]);
 
   const handleModuleSelect = (module, index) => {
     setCurrentModule(module);
@@ -266,7 +278,6 @@ useEffect(() => {
   const isCompleted = currentModule.isCompleted;
   const isLastModule = currentIndex === modules.length - 1;
   const isFirstModule = currentIndex === 0;
-  // const allCompleted = modules.every(m => m.isCompleted);
   const completedCount = modules.filter(m => m.isCompleted).length;
 
   return (

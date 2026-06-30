@@ -1,4 +1,4 @@
-import React, { useState, useEffect ,useCallback} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Star,
@@ -35,76 +35,93 @@ const CourseDetails = () => {
   const [enrolling, setEnrolling] = useState(false);
   const [expandedModules, setExpandedModules] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // ✅ Use ref to prevent multiple fetches
+  const hasFetched = useRef(false);
 
-
-
-const fetchCourseDetails = useCallback(async () => {
-  setLoading(true);
-
-  try {
-    const response = await axiosInstance.get(`/courses/${id}`);
-
-    if (response.data.success) {
-      setCourse(response.data.data);
-      setIsEnrolled(response.data.isEnrolled || false);
+  // ✅ Fetch course details - using ref to prevent multiple calls
+  const fetchCourseDetails = async () => {
+    // ✅ Prevent multiple fetches
+    if (hasFetched.current) {
+      console.log('⏭️ Course details already fetched, skipping...');
+      return;
     }
-  } catch (error) {
-    console.error('Error fetching course:', error);
-    toast.error('Failed to load course details');
-  } finally {
-    setLoading(false);
-  }
-}, [id, toast]);
 
-useEffect(() => {
-  fetchCourseDetails();
-}, [fetchCourseDetails]);
-// Update the handleEnroll function
-// Update the handleEnroll function
-const handleEnroll = async () => {
-  if (!user) {
-    toast.error('Please login to enroll in this course');
-    navigate('/login');
-    return;
-  }
+    hasFetched.current = true;
+    setLoading(true);
 
-  setEnrolling(true);
-  const toastId = toast.loading('Enrolling in course...');
+    try {
+      console.log('🔄 Fetching course details...');
+      const response = await axiosInstance.get(`/courses/${id}`);
 
-  try {
-    const response = await axiosInstance.post(`/courses/${id}/enroll`);
-    if (response.data.success) {
-      setIsEnrolled(true);
-      
-      const enrollmentId = response.data.data?.enrollmentId;
-      const courseTitle = response.data.data?.courseTitle || course?.title;
-      
-      toast.success(`Successfully enrolled in "${courseTitle}"! 🎉`);
-      
-      // Update the course students count
-      setCourse(prev => ({
-        ...prev,
-        studentsEnrolled: (prev.studentsEnrolled || 0) + 1,
-      }));
-
-      // Redirect to learning page or dashboard
-      setTimeout(() => {
-        if (enrollmentId) {
-          navigate(`/learning/${enrollmentId}`);
-        } else {
-          navigate('/dashboard');
-        }
-      }, 1500);
+      if (response.data.success) {
+        setCourse(response.data.data);
+        setIsEnrolled(response.data.isEnrolled || false);
+        console.log('✅ Course details fetched successfully');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching course:', error);
+      toast.error('Failed to load course details');
+      // ✅ Reset flag on error so retry is possible
+      hasFetched.current = false;
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error enrolling:', error);
-    const errorMessage = error.response?.data?.message || 'Failed to enroll in course';
-    toast.error(errorMessage);
-  } finally {
-    toast.dismiss(toastId);
-    setEnrolling(false);
-  }
-};
+  };
+
+  // ✅ Fetch course details only once
+  // ✅ eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (id) {
+      fetchCourseDetails();
+    }
+  }, [id]);
+
+  // Update the handleEnroll function
+  const handleEnroll = async () => {
+    if (!user) {
+      toast.error('Please login to enroll in this course');
+      navigate('/login');
+      return;
+    }
+
+    setEnrolling(true);
+    const toastId = toast.loading('Enrolling in course...');
+
+    try {
+      const response = await axiosInstance.post(`/courses/${id}/enroll`);
+      if (response.data.success) {
+        setIsEnrolled(true);
+        
+        const enrollmentId = response.data.data?.enrollmentId;
+        const courseTitle = response.data.data?.courseTitle || course?.title;
+        
+        toast.success(`Successfully enrolled in "${courseTitle}"! 🎉`);
+        
+        // Update the course students count
+        setCourse(prev => ({
+          ...prev,
+          studentsEnrolled: (prev.studentsEnrolled || 0) + 1,
+        }));
+
+        // Redirect to learning page or dashboard
+        setTimeout(() => {
+          if (enrollmentId) {
+            navigate(`/learning/${enrollmentId}`);
+          } else {
+            navigate('/dashboard');
+          }
+        }, 1500);
+      }
+    } catch (error) {
+      console.error('Error enrolling:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to enroll in course';
+      toast.error(errorMessage);
+    } finally {
+      toast.dismiss(toastId);
+      setEnrolling(false);
+    }
+  };
 
   const toggleModule = (index) => {
     setExpandedModules(prev =>
