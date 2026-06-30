@@ -1,18 +1,25 @@
 const User = require('../models/User.model');
 const AppError = require('../utils/AppError');
 const catchAsync = require('../utils/catchAsync');
+const uploadBufferToCloudinary = require('../utils/cloudinaryUploader');
 
 // @desc    Upload profile picture
 // @route   POST /api/users/upload-avatar
 // @access  Private
 const uploadAvatar = catchAsync(async (req, res, next) => {
-  if (!req.file) {
+  if (!req.file || !req.file.buffer) {
     return next(new AppError('Please upload an image', 400));
   }
 
+  const uploadResult = await uploadBufferToCloudinary(
+    req.file.buffer,
+    'learnhub-avatars',
+    [{ width: 200, height: 200, crop: 'fill' }]
+  );
+
   const user = await User.findByIdAndUpdate(
     req.user.id,
-    { avatar: req.file.path },
+    { avatar: uploadResult.secure_url },
     { new: true }
   ).select('-password');
 

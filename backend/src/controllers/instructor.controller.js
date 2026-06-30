@@ -2,6 +2,7 @@ const Course = require('../models/Course.model');
 const Enrollment = require('../models/Enrollment.model');
 const AppError = require('../utils/AppError');
 const catchAsync = require('../utils/catchAsync');
+const uploadBufferToCloudinary = require('../utils/cloudinaryUploader');
 
 // @desc    Get all courses for instructor
 // @route   GET /api/instructor/courses
@@ -358,14 +359,20 @@ const deleteCourse = catchAsync(async (req, res, next) => {
 // @route   POST /api/instructor/upload-thumbnail
 // @access  Private (Instructor/Admin)
 const uploadThumbnail = catchAsync(async (req, res, next) => {
-  if (!req.file) {
+  if (!req.file || !req.file.buffer) {
     return next(new AppError('Please upload an image', 400));
   }
+
+  const uploadResult = await uploadBufferToCloudinary(
+    req.file.buffer,
+    'learnhub-thumbnails',
+    [{ width: 200, height: 200, crop: 'fill' }]
+  );
 
   res.status(200).json({
     success: true,
     data: {
-      url: req.file.path,
+      url: uploadResult.secure_url,
     },
     message: 'Thumbnail uploaded successfully',
   });
