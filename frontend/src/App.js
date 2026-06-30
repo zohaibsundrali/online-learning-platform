@@ -10,7 +10,7 @@ import Login from './components/pages/Auth/Login';
 import Register from './components/pages/Auth/Register';
 import CourseListing from './components/pages/Courses/CourseListing';
 import CourseDetails from './components/pages/Courses/CourseDetails';
-// We'll add Dashboard in next step
+import Dashboard from './components/pages/Dashboard/Dashboard';
 
 function App() {
   return (
@@ -24,9 +24,9 @@ function App() {
             <Route path="/courses" element={<CourseListing />} />
             <Route path="/course/:id" element={<CourseDetails />} />
             {/* Protected routes */}
-            <Route path="/dashboard" element={
+            <Route path="/dashboard/*" element={
               <ProtectedRoute>
-                <div>Dashboard - Coming Soon</div>
+                <Dashboard />
               </ProtectedRoute>
             } />
           </Routes>
