@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef,useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { useToast } from '../../../common/Toast/ToastProvider';
@@ -75,42 +75,49 @@ const CourseForm = () => {
   });
 
   // Fetch course data if editing
-  useEffect(() => {
-    if (courseId) {
-      setIsEdit(true);
-      fetchCourseData();
-    }
-  }, [courseId]);
+ 
 
-  const fetchCourseData = async () => {
-    setLoading(true);
-    try {
-      const response = await axiosInstance.get(`/instructor/course/${courseId}`);
-      if (response.data.success) {
-        const course = response.data.data;
-        // Set form values
-        Object.keys(course).forEach(key => {
-          if (key !== 'modules' && key !== '_id' && key !== '__v') {
-            setValue(key, course[key]);
-          }
-        });
-        // Set modules
-        if (course.modules && course.modules.length > 0) {
-          setValue('modules', course.modules);
+ const fetchCourseData = useCallback(async () => {
+  setLoading(true);
+
+  try {
+    const response = await axiosInstance.get(`/instructor/course/${courseId}`);
+
+    if (response.data.success) {
+      const course = response.data.data;
+
+      // Set form values
+      Object.keys(course).forEach((key) => {
+        if (key !== "modules" && key !== "_id" && key !== "__v") {
+          setValue(key, course[key]);
         }
-        // Set thumbnail preview
-        if (course.thumbnail) {
-          setThumbnailPreview(course.thumbnail);
-        }
+      });
+
+      // Set modules
+      if (course.modules?.length > 0) {
+        setValue("modules", course.modules);
       }
-    } catch (error) {
-      console.error('Error fetching course:', error);
-      toast.error('Failed to load course data');
-      navigate('/instructor/dashboard');
-    } finally {
-      setLoading(false);
+
+      // Thumbnail preview
+      if (course.thumbnail) {
+        setThumbnailPreview(course.thumbnail);
+      }
     }
-  };
+  } catch (error) {
+    console.error("Error fetching course:", error);
+    toast.error("Failed to load course data");
+    navigate("/instructor/dashboard");
+  } finally {
+    setLoading(false);
+  }
+}, [courseId, navigate, setValue, toast]);
+
+useEffect(() => {
+  if (courseId) {
+    setIsEdit(true);
+    fetchCourseData();
+  }
+}, [courseId, fetchCourseData]);
 
   const handleThumbnailChange = (e) => {
     const file = e.target.files[0];

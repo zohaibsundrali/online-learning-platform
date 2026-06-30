@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef,useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   
@@ -7,7 +7,7 @@ import {
   ArrowLeft,
   BookOpen,
 } from 'lucide-react';
-import { useAuth } from '../../../context/AuthContext';
+
 import { useToast } from '../../common/Toast/ToastProvider';
 import LoadingSpinner from '../../common/LoadingSpinner/LoadingSpinner';
 import axiosInstance from '../../../api/axios';
@@ -53,39 +53,43 @@ const LearningPage = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Fetch learning data
-  useEffect(() => {
-    fetchLearningData();
-  }, [enrollmentId]);
+  
 
-  const fetchLearningData = async () => {
-    setLoading(true);
-    try {
-      const response = await axiosInstance.get(`/learning/${enrollmentId}`);
-      if (response.data.success) {
-        const data = response.data.data;
-        setLearningData(data);
-        setModules(data.modules);
-        setProgress(data.enrollment.progress);
-        setIsCourseCompleted(data.enrollment.status === 'completed');
-        
-        // Set current module
-        if (data.currentModule) {
-          setCurrentModule(data.currentModule);
-          setCurrentIndex(data.currentModuleIndex);
-        } else if (data.modules.length > 0) {
-          setCurrentModule(data.modules[0]);
-          setCurrentIndex(0);
-        }
+  const fetchLearningData = useCallback(async () => {
+  setLoading(true);
+
+  try {
+    const response = await axiosInstance.get(`/learning/${enrollmentId}`);
+
+    if (response.data.success) {
+      const data = response.data.data;
+
+      setLearningData(data);
+      setModules(data.modules);
+      setProgress(data.enrollment.progress);
+      setIsCourseCompleted(data.enrollment.status === "completed");
+
+      if (data.currentModule) {
+        setCurrentModule(data.currentModule);
+        setCurrentIndex(data.currentModuleIndex);
+      } else if (data.modules.length > 0) {
+        setCurrentModule(data.modules[0]);
+        setCurrentIndex(0);
       }
-    } catch (error) {
-      console.error('Error fetching learning data:', error);
-      toast.error('Failed to load course content');
-      navigate('/dashboard');
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching learning data:", error);
+    toast.error("Failed to load course content");
+    navigate("/dashboard");
+  } finally {
+    setLoading(false);
+  }
+}, [enrollmentId, navigate, toast]);
+
+useEffect(() => {
+  fetchLearningData();
+}, [fetchLearningData]);
+
 
   const handleModuleSelect = (module, index) => {
     setCurrentModule(module);

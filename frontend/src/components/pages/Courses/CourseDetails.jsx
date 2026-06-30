@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect ,useCallback} from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Star,
@@ -36,25 +36,29 @@ const CourseDetails = () => {
   const [expandedModules, setExpandedModules] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
 
-  useEffect(() => {
-    fetchCourseDetails();
-  }, [id]);
 
-  const fetchCourseDetails = async () => {
-    setLoading(true);
-    try {
-      const response = await axiosInstance.get(`/courses/${id}`);
-      if (response.data.success) {
-        setCourse(response.data.data);
-        setIsEnrolled(response.data.isEnrolled || false);
-      }
-    } catch (error) {
-      console.error('Error fetching course:', error);
-      toast.error('Failed to load course details');
-    } finally {
-      setLoading(false);
+
+const fetchCourseDetails = useCallback(async () => {
+  setLoading(true);
+
+  try {
+    const response = await axiosInstance.get(`/courses/${id}`);
+
+    if (response.data.success) {
+      setCourse(response.data.data);
+      setIsEnrolled(response.data.isEnrolled || false);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching course:', error);
+    toast.error('Failed to load course details');
+  } finally {
+    setLoading(false);
+  }
+}, [id, toast]);
+
+useEffect(() => {
+  fetchCourseDetails();
+}, [fetchCourseDetails]);
 // Update the handleEnroll function
 // Update the handleEnroll function
 const handleEnroll = async () => {

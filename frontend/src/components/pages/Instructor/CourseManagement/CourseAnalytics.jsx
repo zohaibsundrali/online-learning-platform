@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect,useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   Users, 
@@ -32,49 +32,53 @@ const CourseAnalytics = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [courseInfo, setCourseInfo] = useState(null);
 
-  useEffect(() => {
-    fetchCourseInfo();
-    fetchAnalytics();
-    fetchStudents();
-  }, [courseId]);
 
-  const fetchCourseInfo = async () => {
-    try {
-      const response = await axiosInstance.get(`/instructor/course/${courseId}`);
-      if (response.data.success) {
-        setCourseInfo(response.data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching course info:', error);
-    }
-  };
 
-  const fetchAnalytics = async () => {
-    try {
-      const response = await axiosInstance.get(`/instructor/course/${courseId}/analytics`);
-      if (response.data.success) {
-        setAnalytics(response.data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-      toast.error('Failed to load analytics data');
+ const fetchCourseInfo = useCallback(async () => {
+  try {
+    const response = await axiosInstance.get(`/instructor/course/${courseId}`);
+    if (response.data.success) {
+      setCourseInfo(response.data.data);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching course info:', error);
+  }
+}, [courseId]);
 
-  const fetchStudents = async () => {
-    setLoading(true);
-    try {
-      const response = await axiosInstance.get(`/instructor/course/${courseId}/students`);
-      if (response.data.success) {
-        setStudents(response.data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching students:', error);
-      toast.error('Failed to load student data');
-    } finally {
-      setLoading(false);
+const fetchAnalytics = useCallback(async () => {
+  try {
+    const response = await axiosInstance.get(`/instructor/course/${courseId}/analytics`);
+    if (response.data.success) {
+      setAnalytics(response.data.data);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    toast.error('Failed to load analytics data');
+  }
+}, [courseId, toast]);
+
+const fetchStudents = useCallback(async () => {
+  setLoading(true);
+
+  try {
+    const response = await axiosInstance.get(`/instructor/course/${courseId}/students`);
+
+    if (response.data.success) {
+      setStudents(response.data.data);
+    }
+  } catch (error) {
+    console.error('Error fetching students:', error);
+    toast.error('Failed to load student data');
+  } finally {
+    setLoading(false);
+  }
+}, [courseId, toast]);
+
+ useEffect(() => {
+  fetchCourseInfo();
+  fetchAnalytics();
+  fetchStudents();
+}, [fetchCourseInfo, fetchAnalytics, fetchStudents]);
 
   const filteredStudents = students.filter(student =>
     student.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||

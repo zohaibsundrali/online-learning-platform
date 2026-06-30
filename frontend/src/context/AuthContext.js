@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect ,useCallback} from 'react';
 import axiosInstance from '../api/axios';
 
 const AuthContext = createContext();
@@ -21,34 +21,40 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Load user from localStorage on mount
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const storedToken = localStorage.getItem('token');
-    
-    if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
-      getCurrentUser();
-    } else {
-      setLoading(false);
-    }
-  }, []);
+  
 
   // Get current user
-  const getCurrentUser = async () => {
-    try {
-      const response = await axiosInstance.get('/auth/me');
-      if (response.data.success) {
-        setUser(response.data.data);
-        localStorage.setItem('user', JSON.stringify(response.data.data));
-      }
-    } catch (error) {
-      console.error('Error fetching user:', error);
-      logout();
-    } finally {
-      setLoading(false);
+ const getCurrentUser = useCallback(async () => {
+  try {
+    const response = await axiosInstance.get('/auth/me');
+
+    if (response.data.success) {
+      setUser(response.data.data);
+      localStorage.setItem('user', JSON.stringify(response.data.data));
     }
-  };
+  } catch (error) {
+    console.error('Error fetching user:', error);
+
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    setError(null);
+  } finally {
+    setLoading(false);
+  }
+}, []);
+
+useEffect(() => {
+  const storedUser = localStorage.getItem('user');
+  const storedToken = localStorage.getItem('token');
+
+  if (storedUser && storedToken) {
+    setUser(JSON.parse(storedUser));
+    getCurrentUser();
+  } else {
+    setLoading(false);
+  }
+}, [getCurrentUser]);
 
   // Register
   const register = async (userData) => {

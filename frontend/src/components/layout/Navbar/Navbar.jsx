@@ -40,26 +40,7 @@ const Navbar = () => {
     { path: '/courses', label: 'Courses', icon: BookOpen },
   ];
 
-  // Role-based nav links
-  const getRoleLinks = () => {
-    if (!user) return [];
-
-    if (user.role === 'instructor' || user.role === 'admin') {
-      return [
-        { path: '/instructor/dashboard', label: 'Instructor Dashboard', icon: LayoutDashboard },
-        { path: '/instructor/course/new', label: 'Create Course', icon: PlusCircle },
-      ];
-    }
-
-    if (user.role === 'student') {
-      return [
-        { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      ];
-    }
-
-    return [];
-  };
-
+  
  
 
   return (
