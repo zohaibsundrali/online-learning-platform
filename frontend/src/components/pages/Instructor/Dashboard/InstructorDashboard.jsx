@@ -1,4 +1,4 @@
-import React, { useState, useEffect ,useCallback} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, BookOpen } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
@@ -19,41 +19,63 @@ const InstructorDashboard = () => {
   const [courses, setCourses] = useState([]);
   const [stats, setStats] = useState(null);
   const [filter, setFilter] = useState('all');
+  
+  // ✅ Use ref to track if data has been fetched
+  const hasFetched = useRef(false);
 
-
-
-const fetchDashboardData = useCallback(async () => {
-  setLoading(true);
-
-  try {
-    // Fetch courses
-    const coursesRes = await axiosInstance.get('/instructor/courses');
-    if (coursesRes.data.success) {
-      setCourses(coursesRes.data.data);
+  // ✅ Fetch dashboard data - using a flag to prevent multiple calls
+  const fetchDashboardData = async () => {
+    // ✅ Prevent multiple fetches
+    if (hasFetched.current) {
+      console.log('⏭️ Data already fetched, skipping...');
+      return;
     }
 
-    // Fetch stats
-    const statsRes = await axiosInstance.get('/instructor/stats');
-    if (statsRes.data.success) {
-      setStats(statsRes.data.data);
+    hasFetched.current = true;
+    setLoading(true);
+
+    try {
+      console.log('🔄 Fetching instructor dashboard data...');
+
+      // Fetch courses
+      const coursesRes = await axiosInstance.get('/instructor/courses');
+      console.log('📚 Courses response:', coursesRes.data);
+      if (coursesRes.data.success) {
+        setCourses(coursesRes.data.data || []);
+      }
+
+      // Fetch stats
+      const statsRes = await axiosInstance.get('/instructor/stats');
+      console.log('📊 Stats response:', statsRes.data);
+      if (statsRes.data.success) {
+        setStats(statsRes.data.data);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching instructor data:', error);
+      toast.error('Failed to load dashboard data');
+      // ✅ Reset flag on error so retry is possible
+      hasFetched.current = false;
+    } finally {
+      setLoading(false);
+      console.log('✅ Instructor dashboard data fetch completed');
     }
-  } catch (error) {
-    console.error('Error fetching instructor data:', error);
-    toast.error('Failed to load dashboard data');
-  } finally {
-    setLoading(false);
-  }
-}, [toast]);
+  };
 
-useEffect(() => {
-  if (user && user.role !== 'instructor' && user.role !== 'admin') {
-    toast.error('You do not have instructor access');
-    navigate('/dashboard');
-    return;
-  }
-
-  fetchDashboardData();
-}, [user, navigate, toast, fetchDashboardData]);
+  // ✅ Check instructor access and fetch data - runs only once
+  // ✅ eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    // Check if user is instructor
+    if (user) {
+      if (user.role !== 'instructor' && user.role !== 'admin') {
+        toast.error('You do not have instructor access');
+        navigate('/dashboard');
+        return;
+      }
+      
+      // ✅ Fetch data only once
+      fetchDashboardData();
+    }
+  }, [user]); // ✅ Only depend on user
 
   const handlePublish = async (courseId) => {
     try {

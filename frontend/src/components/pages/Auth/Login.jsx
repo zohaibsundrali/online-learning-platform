@@ -106,14 +106,7 @@ const Login = () => {
               icon={<Lock className="w-5 h-5" />}
             />
 
-            <div className="flex items-center justify-end">
-              <Link
-                to="/forgot-password"
-                className="text-sm text-primary hover:text-secondary transition-colors duration-300"
-              >
-                Forgot Password?
-              </Link>
-            </div>
+           
 
             <button
               type="submit"
