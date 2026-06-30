@@ -11,6 +11,7 @@ import Register from './components/pages/Auth/Register';
 import CourseListing from './components/pages/Courses/CourseListing';
 import CourseDetails from './components/pages/Courses/CourseDetails';
 import Dashboard from './components/pages/Dashboard/Dashboard';
+import LearningPage from './components/pages/Learning/LearningPage'; // ✅ ADD THIS IMPORT
 
 function App() {
   return (
@@ -18,15 +19,24 @@ function App() {
       <ToastProvider>
         <Router>
           <Routes>
+            {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/courses" element={<CourseListing />} />
             <Route path="/course/:id" element={<CourseDetails />} />
-            {/* Protected routes */}
+            
+            {/* ✅ Protected Routes */}
             <Route path="/dashboard/*" element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            } />
+            
+            {/* ✅ ADD LEARNING PAGE ROUTE */}
+            <Route path="/learning/:enrollmentId" element={
+              <ProtectedRoute>
+                <LearningPage />
               </ProtectedRoute>
             } />
           </Routes>

@@ -7,6 +7,8 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 // Import routes
+const learningRoutes = require('./routes/learning.routes');
+const activityRoutes = require('./routes/activity.routes');
 const authRoutes = require('./routes/auth.routes');
 const courseRoutes = require('./routes/course.routes');
 const userRoutes = require('./routes/user.routes');
@@ -29,6 +31,8 @@ app.use(
 );
 
 // Routes
+app.use('/api/activities', activityRoutes);
+app.use('/api/learning', learningRoutes);
 app.use('/api/certificates', certificateRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);

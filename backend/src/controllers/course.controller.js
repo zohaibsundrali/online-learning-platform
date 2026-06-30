@@ -3,17 +3,16 @@ const Enrollment = require('../models/Enrollment.model');
 const User = require('../models/User.model');
 const AppError = require('../utils/AppError');
 const catchAsync = require('../utils/catchAsync');
+const Activity = require('../models/Activity.model');
 
 // @desc    Get all courses with filtering, sorting, pagination
 // @route   GET /api/courses
 // @access  Public
 const getCourses = catchAsync(async (req, res, next) => {
-  // Pagination
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 9;
   const skip = (page - 1) * limit;
 
-  // Filtering
   const filter = { isPublished: true };
   
   if (req.query.category) {
@@ -36,7 +35,6 @@ const getCourses = catchAsync(async (req, res, next) => {
     }
   }
 
-  // Sorting
   let sort = {};
   if (req.query.sort) {
     const sortFields = req.query.sort.split(',');
@@ -80,21 +78,25 @@ const getCourse = catchAsync(async (req, res, next) => {
     return next(new AppError('Course not found', 404));
   }
 
-  // Check if user is enrolled (if authenticated)
   let isEnrolled = false;
-  if (req.user) {
+  let enrollmentId = null;
+  
+  if (req.user && req.user.id) {
     const enrollment = await Enrollment.findOne({
       user: req.user.id,
       course: course._id,
-      status: 'active',
     });
-    isEnrolled = !!enrollment;
+    if (enrollment) {
+      isEnrolled = true;
+      enrollmentId = enrollment._id;
+    }
   }
 
   res.status(200).json({
     success: true,
     data: course,
     isEnrolled,
+    enrollmentId,
   });
 });
 
@@ -123,7 +125,6 @@ const updateCourse = catchAsync(async (req, res, next) => {
     return next(new AppError('Course not found', 404));
   }
 
-  // Check if user owns the course or is admin
   if (course.instructor.toString() !== req.user.id && req.user.role !== 'admin') {
     return next(new AppError('You are not authorized to update this course', 403));
   }
@@ -149,7 +150,6 @@ const deleteCourse = catchAsync(async (req, res, next) => {
     return next(new AppError('Course not found', 404));
   }
 
-  // Check if user owns the course or is admin
   if (course.instructor.toString() !== req.user.id && req.user.role !== 'admin') {
     return next(new AppError('You are not authorized to delete this course', 403));
   }
@@ -162,45 +162,68 @@ const deleteCourse = catchAsync(async (req, res, next) => {
   });
 });
 
-// @desc    Enroll in course
+// @desc    Enroll in course - FIXED
 // @route   POST /api/courses/:id/enroll
 // @access  Private
 const enrollCourse = catchAsync(async (req, res, next) => {
-  const course = await Course.findById(req.params.id);
+  const courseId = req.params.id;
+  const userId = req.user.id;
 
+  // Find the course
+  const course = await Course.findById(courseId);
   if (!course) {
     return next(new AppError('Course not found', 404));
   }
 
   // Check if already enrolled
   const existingEnrollment = await Enrollment.findOne({
-    user: req.user.id,
-    course: course._id,
+    user: userId,
+    course: courseId,
   });
 
   if (existingEnrollment) {
     return next(new AppError('Already enrolled in this course', 400));
   }
 
-  // Create enrollment
-  const enrollment = await Enrollment.create({
-    user: req.user.id,
-    course: course._id,
+  // Create enrollment with explicit fields
+  const enrollment = new Enrollment({
+    user: userId,
+    course: courseId,
+    progress: 0,
+    completedModules: [],
+    status: 'active',
+    lastAccessedAt: new Date(),
   });
+  await enrollment.save();
 
   // Add course to user's enrolled courses
-  await User.findByIdAndUpdate(req.user.id, {
-    $push: { enrolledCourses: course._id },
+  await User.findByIdAndUpdate(userId, {
+    $addToSet: { enrolledCourses: courseId },
   });
 
   // Increment students enrolled count
   course.studentsEnrolled += 1;
   await course.save();
 
+  // Create activity for enrollment
+  await Activity.create({
+    user: userId,
+    type: 'course_enrolled',
+    description: `Enrolled in "${course.title}"`,
+    metadata: {
+      courseId: course._id,
+      courseTitle: course.title,
+    },
+  });
+
   res.status(201).json({
     success: true,
     message: 'Successfully enrolled in course',
-    data: enrollment,
+    data: {
+      enrollmentId: enrollment._id,
+      courseId: course._id,
+      courseTitle: course.title,
+    },
   });
 });
 
@@ -225,28 +248,36 @@ const updateProgress = catchAsync(async (req, res, next) => {
     return next(new AppError('Course not found', 404));
   }
 
-  // Update completed modules
+  if (!enrollment.completedModules) {
+    enrollment.completedModules = [];
+  }
+
   if (completed) {
-    if (!enrollment.completedModules.includes(moduleId)) {
-      enrollment.completedModules.push(moduleId);
+    const alreadyCompleted = enrollment.completedModules.some(
+      item => item && item.moduleId && item.moduleId.toString() === moduleId
+    );
+
+    if (!alreadyCompleted) {
+      enrollment.completedModules.push({
+        moduleId: moduleId,
+        completedAt: new Date(),
+      });
     }
   } else {
     enrollment.completedModules = enrollment.completedModules.filter(
-      (id) => id.toString() !== moduleId
+      item => item && item.moduleId && item.moduleId.toString() !== moduleId
     );
   }
 
-  // Calculate progress percentage
-  const totalModules = course.modules.length;
-  const completedModules = enrollment.completedModules.length;
+  const totalModules = course.modules ? course.modules.length : 0;
+  const completedCount = enrollment.completedModules ? enrollment.completedModules.length : 0;
   enrollment.progress = totalModules > 0 
-    ? Math.round((completedModules / totalModules) * 100)
+    ? Math.round((completedCount / totalModules) * 100)
     : 0;
 
-  // If progress is 100%, mark as completed
   if (enrollment.progress === 100 && enrollment.status !== 'completed') {
     enrollment.status = 'completed';
-    enrollment.completionDate = Date.now();
+    enrollment.completionDate = new Date();
   }
 
   await enrollment.save();

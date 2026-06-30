@@ -56,36 +56,52 @@ const CourseDetails = () => {
       setLoading(false);
     }
   };
+// Update the handleEnroll function
+// Update the handleEnroll function
+const handleEnroll = async () => {
+  if (!user) {
+    toast.error('Please login to enroll in this course');
+    navigate('/login');
+    return;
+  }
 
-  const handleEnroll = async () => {
-    if (!user) {
-      toast.error('Please login to enroll in this course');
-      navigate('/login');
-      return;
+  setEnrolling(true);
+  const toastId = toast.loading('Enrolling in course...');
+
+  try {
+    const response = await axiosInstance.post(`/courses/${id}/enroll`);
+    if (response.data.success) {
+      setIsEnrolled(true);
+      
+      const enrollmentId = response.data.data?.enrollmentId;
+      const courseTitle = response.data.data?.courseTitle || course?.title;
+      
+      toast.success(`Successfully enrolled in "${courseTitle}"! 🎉`);
+      
+      // Update the course students count
+      setCourse(prev => ({
+        ...prev,
+        studentsEnrolled: (prev.studentsEnrolled || 0) + 1,
+      }));
+
+      // Redirect to learning page or dashboard
+      setTimeout(() => {
+        if (enrollmentId) {
+          navigate(`/learning/${enrollmentId}`);
+        } else {
+          navigate('/dashboard');
+        }
+      }, 1500);
     }
-
-    setEnrolling(true);
-    const toastId = toast.loading('Enrolling in course...');
-
-    try {
-      const response = await axiosInstance.post(`/courses/${id}/enroll`);
-      if (response.data.success) {
-        setIsEnrolled(true);
-        toast.success('Successfully enrolled in the course! 🎉');
-        // Update the course students count
-        setCourse(prev => ({
-          ...prev,
-          studentsEnrolled: prev.studentsEnrolled + 1,
-        }));
-      }
-    } catch (error) {
-      console.error('Error enrolling:', error);
-      toast.error(error.response?.data?.message || 'Failed to enroll in course');
-    } finally {
-      toast.dismiss(toastId);
-      setEnrolling(false);
-    }
-  };
+  } catch (error) {
+    console.error('Error enrolling:', error);
+    const errorMessage = error.response?.data?.message || 'Failed to enroll in course';
+    toast.error(errorMessage);
+  } finally {
+    toast.dismiss(toastId);
+    setEnrolling(false);
+  }
+};
 
   const toggleModule = (index) => {
     setExpandedModules(prev =>
