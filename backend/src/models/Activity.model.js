@@ -179,7 +179,7 @@ activitySchema.statics.markAllAsRead = async function(userId) {
 };
 
 // ✅ FIXED: Pre-save middleware - properly call next()
-activitySchema.pre('save', function(next) {
+activitySchema.pre('save', async function() {
   try {
     // If the description contains a course title, extract it
     if (!this.metadata.courseTitle && this.description) {
@@ -188,11 +188,10 @@ activitySchema.pre('save', function(next) {
         this.metadata.courseTitle = match[1];
       }
     }
-    // ✅ Always call next() to continue
-    next();
+    return; // Just return, don't call next
   } catch (error) {
-    // ✅ Pass error to next if something goes wrong
-    next(error);
+    console.error('❌ Activity pre-save error:', error);
+    throw error;
   }
 });
 

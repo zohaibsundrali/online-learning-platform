@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, Clock, Play, Award } from 'lucide-react';
+import {  Clock, Play, Award } from 'lucide-react';
 
 const CourseProgress = ({ 
   progress, 
@@ -57,7 +57,7 @@ const CourseProgress = ({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <span className="text-sm font-medium text-text">Course Progress</span>
+            <span className="text-sm font-medium text-text">Course Progress </span>
             <span className={`text-sm font-bold ${isCompleted ? 'text-accent' : 'text-primary'}`}>
               {displayProgress}%
             </span>

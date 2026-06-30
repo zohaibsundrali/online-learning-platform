@@ -13,6 +13,7 @@ const authRoutes = require('./routes/auth.routes');
 const courseRoutes = require('./routes/course.routes');
 const userRoutes = require('./routes/user.routes');
 const certificateRoutes = require('./routes/certificate.routes');
+const instructorRoutes = require('./routes/instructor.routes');
 
 // Import middleware
 const errorHandler = require('./middleware/error.middleware');
@@ -31,6 +32,7 @@ app.use(
 );
 
 // Routes
+app.use('/api/instructor', instructorRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/learning', learningRoutes);
 app.use('/api/certificates', certificateRoutes);

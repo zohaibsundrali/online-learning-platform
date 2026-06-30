@@ -48,7 +48,6 @@ const courseSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
-      required: true,
     },
     description: {
       type: String,
@@ -133,6 +132,38 @@ const courseSchema = new mongoose.Schema(
   }
 );
 
+// ✅ FIXED: Pre-save middleware - Using async/await without next
+courseSchema.pre('save', async function() {
+  try {
+    console.log('📚 Course pre-save middleware called');
+    console.log('📚 Title:', this.title);
+    
+    // Generate slug from title
+    if (this.title) {
+      this.slug = this.title
+        .toLowerCase()
+        .replace(/[^a-zA-Z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+      console.log('📚 Generated slug:', this.slug);
+    }
+    
+    // Calculate total duration
+    if (this.modules && this.modules.length > 0) {
+      this.totalDuration = this.modules.reduce(
+        (total, module) => total + (module.duration || 0),
+        0
+      );
+    }
+    
+    console.log('✅ Pre-save completed successfully');
+    return; // Just return, don't call next
+  } catch (error) {
+    console.error('❌ Pre-save error:', error);
+    throw error; // Throw error instead of next(error)
+  }
+});
+
 // Virtual for number of modules
 courseSchema.virtual('moduleCount').get(function () {
   return this.modules ? this.modules.length : 0;
@@ -140,5 +171,7 @@ courseSchema.virtual('moduleCount').get(function () {
 
 // Index for search
 courseSchema.index({ title: 'text', description: 'text', tags: 'text' });
+// Index for slug
+courseSchema.index({ slug: 1 });
 
 module.exports = mongoose.model('Course', courseSchema);

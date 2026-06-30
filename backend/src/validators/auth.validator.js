@@ -29,6 +29,12 @@ const registerValidator = [
     .withMessage('Please confirm your password')
     .custom((value, { req }) => value === req.body.password)
     .withMessage('Passwords do not match'),
+  
+  // ✅ Add role validation
+  body('role')
+    .optional()
+    .isIn(['student', 'instructor'])
+    .withMessage('Role must be either student or instructor'),
 ];
 
 const loginValidator = [

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { 
   Menu, 
@@ -8,28 +8,59 @@ import {
   User, 
   LogOut, 
   Home,
-  GraduationCap
+  GraduationCap,
+  LayoutDashboard,
+  PlusCircle,
+  Users,
+  Settings
 } from 'lucide-react';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location]);
 
   const handleLogout = async () => {
     await logout();
     navigate('/');
     setIsMobileMenuOpen(false);
+    setIsDropdownOpen(false);
   };
 
+  // Public nav links
   const navLinks = [
     { path: '/', label: 'Home', icon: Home },
     { path: '/courses', label: 'Courses', icon: BookOpen },
   ];
 
-  if (user) {
-    navLinks.push({ path: '/dashboard', label: 'Dashboard', icon: GraduationCap });
-  }
+  // Role-based nav links
+  const getRoleLinks = () => {
+    if (!user) return [];
+
+    if (user.role === 'instructor' || user.role === 'admin') {
+      return [
+        { path: '/instructor/dashboard', label: 'Instructor Dashboard', icon: LayoutDashboard },
+        { path: '/instructor/course/new', label: 'Create Course', icon: PlusCircle },
+      ];
+    }
+
+    if (user.role === 'student') {
+      return [
+        { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      ];
+    }
+
+    return [];
+  };
+
+  const roleLinks = getRoleLinks();
 
   return (
     <nav className="bg-card border-b border-border sticky top-0 z-50 backdrop-blur-sm bg-opacity-95">
@@ -57,20 +88,91 @@ const Navbar = () => {
             ))}
             
             {user ? (
-              <div className="flex items-center space-x-4">
-                <Link
-                  to="/dashboard"
-                  className="flex items-center space-x-2 px-4 py-2 bg-primary text-background rounded-full hover:bg-opacity-90 transition-all duration-300"
-                >
-                  <User className="w-4 h-4" />
-                  <span>{user.name}</span>
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="p-2 text-text hover:text-accent transition-colors duration-300"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
+              <div className="flex items-center space-x-4 relative">
+                {/* Instructor Quick Actions */}
+                {(user.role === 'instructor' || user.role === 'admin') && (
+                  <Link
+                    to="/instructor/course/new"
+                    className="p-2 text-primary hover:bg-primary hover:bg-opacity-10 rounded-full transition-all duration-300"
+                    title="Create New Course"
+                  >
+                    <PlusCircle className="w-5 h-5" />
+                  </Link>
+                )}
+
+                {/* User Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className="flex items-center space-x-2 focus:outline-none"
+                  >
+                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-background font-semibold text-sm">
+                      {user.name?.charAt(0) || 'U'}
+                    </div>
+                    <span className="text-sm text-text hidden lg:block">
+                      {user.name}
+                    </span>
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-card shadow-lg py-2 z-50">
+                      <div className="px-4 py-2 border-b border-border">
+                        <p className="text-sm font-semibold text-text">{user.name}</p>
+                        <p className="text-xs text-text text-opacity-60">{user.email}</p>
+                        <p className="text-xs text-primary mt-1 capitalize">{user.role}</p>
+                      </div>
+
+                      {/* Role-specific links in dropdown */}
+                      {user.role === 'instructor' || user.role === 'admin' ? (
+                        <>
+                          <Link
+                            to="/instructor/dashboard"
+                            onClick={() => setIsDropdownOpen(false)}
+                            className="flex items-center space-x-2 px-4 py-2 text-sm text-text hover:bg-primary hover:bg-opacity-10 transition-colors duration-300"
+                          >
+                            <LayoutDashboard className="w-4 h-4" />
+                            <span>Dashboard</span>
+                          </Link>
+                          <Link
+                            to="/instructor/course/new"
+                            onClick={() => setIsDropdownOpen(false)}
+                            className="flex items-center space-x-2 px-4 py-2 text-sm text-text hover:bg-primary hover:bg-opacity-10 transition-colors duration-300"
+                          >
+                            <PlusCircle className="w-4 h-4" />
+                            <span>Create Course</span>
+                          </Link>
+                        </>
+                      ) : (
+                        <Link
+                          to="/dashboard"
+                          onClick={() => setIsDropdownOpen(false)}
+                          className="flex items-center space-x-2 px-4 py-2 text-sm text-text hover:bg-primary hover:bg-opacity-10 transition-colors duration-300"
+                        >
+                          <LayoutDashboard className="w-4 h-4" />
+                          <span>Dashboard</span>
+                        </Link>
+                      )}
+
+                      <Link
+                        to="/dashboard/profile"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex items-center space-x-2 px-4 py-2 text-sm text-text hover:bg-primary hover:bg-opacity-10 transition-colors duration-300"
+                      >
+                        <Settings className="w-4 h-4" />
+                        <span>Profile</span>
+                      </Link>
+
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-accent hover:bg-accent hover:bg-opacity-10 transition-colors duration-300"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>Logout</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="flex items-center space-x-4">
@@ -104,6 +206,7 @@ const Navbar = () => {
       {isMobileMenuOpen && (
         <div className="md:hidden bg-card border-t border-border">
           <div className="container mx-auto px-4 py-4 space-y-3">
+            {/* Public Links */}
             {navLinks.map((link) => (
               <Link
                 key={link.path}
@@ -115,17 +218,57 @@ const Navbar = () => {
                 <span>{link.label}</span>
               </Link>
             ))}
-            
+
+            {/* Role-specific Mobile Links */}
+            {user && (
+              <>
+                {user.role === 'instructor' || user.role === 'admin' ? (
+                  <>
+                    <Link
+                      to="/instructor/dashboard"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center space-x-2 px-4 py-3 text-text hover:bg-primary hover:bg-opacity-10 rounded-lg transition-all duration-300"
+                    >
+                      <LayoutDashboard className="w-5 h-5" />
+                      <span>Instructor Dashboard</span>
+                    </Link>
+                    <Link
+                      to="/instructor/course/new"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center space-x-2 px-4 py-3 text-primary hover:bg-primary hover:bg-opacity-10 rounded-lg transition-all duration-300"
+                    >
+                      <PlusCircle className="w-5 h-5" />
+                      <span>Create Course</span>
+                    </Link>
+                  </>
+                ) : (
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center space-x-2 px-4 py-3 text-text hover:bg-primary hover:bg-opacity-10 rounded-lg transition-all duration-300"
+                  >
+                    <LayoutDashboard className="w-5 h-5" />
+                    <span>Dashboard</span>
+                  </Link>
+                )}
+              </>
+            )}
+
+            {/* User Info & Logout */}
             {user ? (
               <>
-                <Link
-                  to="/dashboard"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center space-x-2 px-4 py-3 text-text hover:bg-primary hover:bg-opacity-10 rounded-lg transition-all duration-300"
-                >
-                  <User className="w-5 h-5" />
-                  <span>Profile</span>
-                </Link>
+                <div className="px-4 py-3 border-t border-border">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-background font-bold">
+                      {user.name?.charAt(0) || 'U'}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-text">{user.name}</p>
+                      <p className="text-xs text-text text-opacity-60">{user.email}</p>
+                      <p className="text-xs text-primary capitalize">{user.role}</p>
+                    </div>
+                  </div>
+                </div>
                 <button
                   onClick={handleLogout}
                   className="flex items-center space-x-2 px-4 py-3 text-accent hover:bg-accent hover:bg-opacity-10 rounded-lg transition-all duration-300 w-full"

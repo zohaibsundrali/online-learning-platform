@@ -5,29 +5,35 @@ import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../common/Toast/ToastProvider';
 import Input from '../../common/Input/Input';
 import LoadingSpinner from '../../common/LoadingSpinner/LoadingSpinner';
-import { BookOpen, User, Mail, Lock, CheckCircle } from 'lucide-react';
+import { BookOpen, User, Mail, Lock, CheckCircle, GraduationCap, Users } from 'lucide-react';
 
 const Register = () => {
-  const { register: registerUser, user } = useAuth();
+  const { register: registerUser, user, getDashboardPath } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedRole, setSelectedRole] = useState('student');
 
   const {
     register,
     handleSubmit,
     watch,
     formState: { errors },
-  } = useForm();
+  } = useForm({
+    defaultValues: {
+      role: 'student',
+    },
+  });
 
   const password = watch('password');
 
-  // Redirect if already logged in
+  // ✅ Redirect based on role
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      const dashboardPath = getDashboardPath(user.role);
+      navigate(dashboardPath);
     }
-  }, [user, navigate]);
+  }, [user, navigate, getDashboardPath]);
 
   const onSubmit = async (data) => {
     setIsLoading(true);
@@ -39,11 +45,12 @@ const Register = () => {
         email: data.email,
         password: data.password,
         confirmPassword: data.confirmPassword,
+        role: data.role, // ✅ Send role to backend
       });
 
       if (result.success) {
         toast.success('Account created successfully! 🎉');
-        navigate('/dashboard');
+        // Redirect will happen in the useEffect
       } else {
         toast.error(result.error || 'Registration failed. Please try again.');
       }
@@ -54,6 +61,21 @@ const Register = () => {
       setIsLoading(false);
     }
   };
+
+  const roleOptions = [
+    {
+      value: 'student',
+      label: 'Student',
+      icon: GraduationCap,
+      description: 'Learn from expert instructors and track your progress',
+    },
+    {
+      value: 'instructor',
+      label: 'Instructor',
+      icon: Users,
+      description: 'Create courses, share knowledge, and build your audience',
+    },
+  ];
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -146,6 +168,58 @@ const Register = () => {
                   value === password || 'Passwords do not match',
               }}
             />
+
+            {/* ✅ Role Selection */}
+            <div>
+              <label className="block text-sm font-medium text-text mb-2">
+                I want to join as a
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {roleOptions.map((option) => {
+                  const Icon = option.icon;
+                  const isSelected = selectedRole === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        setSelectedRole(option.value);
+                        // ✅ Update react-hook-form value
+                        register('role').onChange({
+                          target: { name: 'role', value: option.value },
+                        });
+                      }}
+                      className={`
+                        p-4 rounded-card border-2 transition-all duration-300 text-left
+                        ${isSelected 
+                          ? 'border-primary bg-primary bg-opacity-10' 
+                          : 'border-border bg-background hover:border-primary hover:bg-primary hover:bg-opacity-5'
+                        }
+                      `}
+                    >
+                      <div className="flex flex-col items-center text-center space-y-2">
+                        <Icon className={`w-6 h-6 ${isSelected ? 'text-primary' : 'text-text text-opacity-40'}`} />
+                        <span className={`text-sm font-medium ${isSelected ? 'text-primary' : 'text-text'}`}>
+                          {option.label}
+                        </span>
+                        <p className="text-xs text-text text-opacity-40 leading-tight">
+                          {option.description}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Hidden input for react-hook-form */}
+              <input
+                type="hidden"
+                {...register('role', { required: 'Please select a role' })}
+                value={selectedRole}
+              />
+              {errors.role && (
+                <p className="text-xs text-accent mt-1">{errors.role.message}</p>
+              )}
+            </div>
 
             <div className="flex items-start space-x-2 text-sm text-text text-opacity-60">
               <CheckCircle className="w-4 h-4 mt-0.5 text-primary flex-shrink-0" />

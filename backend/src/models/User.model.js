@@ -47,7 +47,7 @@ const userSchema = new mongoose.Schema(
       of: Number,
       default: {},
     },
-      bio: {  
+    bio: {  
       type: String,
       maxlength: [200, 'Bio cannot exceed 200 characters'],
       default: '',
@@ -66,7 +66,7 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// ✅ CORRECT - Using async/await WITHOUT 'next'
+// ✅ FIXED: Pre-save middleware - Using async/await without next
 userSchema.pre('save', async function() {
   console.log('🔐 Pre-save middleware called');
   console.log('Is password modified?', this.isModified('password'));

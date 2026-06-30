@@ -38,7 +38,7 @@ const register = catchAsync(async (req, res, next) => {
     return next(new AppError(errors.array()[0].msg, 400));
   }
 
-  const { name, email, password } = req.body;
+  const { name, email, password, role } = req.body;
 
   // Check if user already exists
   const existingUser = await User.findOne({ email });
@@ -46,11 +46,12 @@ const register = catchAsync(async (req, res, next) => {
     return next(new AppError('User already exists with this email', 400));
   }
 
-  // Create user
+  // Create user with role (default to 'student' if not provided)
   const user = await User.create({
     name,
     email,
     password,
+    role: role || 'student', // Default to student if role not provided
   });
 
   sendTokenResponse(user, 201, res);

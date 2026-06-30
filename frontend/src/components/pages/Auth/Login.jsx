@@ -8,7 +8,7 @@ import LoadingSpinner from '../../common/LoadingSpinner/LoadingSpinner';
 import { BookOpen, Mail, Lock } from 'lucide-react';
 
 const Login = () => {
-  const { login, user } = useAuth();
+  const { login, user, getDashboardPath } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -19,12 +19,13 @@ const Login = () => {
     formState: { errors },
   } = useForm();
 
-  // Redirect if already logged in
+  // ✅ Redirect based on role
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      const dashboardPath = getDashboardPath(user.role);
+      navigate(dashboardPath);
     }
-  }, [user, navigate]);
+  }, [user, navigate, getDashboardPath]);
 
   const onSubmit = async (data) => {
     setIsLoading(true);
@@ -38,7 +39,7 @@ const Login = () => {
 
       if (result.success) {
         toast.success('Welcome back! 🎉');
-        navigate('/dashboard');
+        // Redirect will happen in the useEffect
       } else {
         toast.error(result.error || 'Login failed. Please try again.');
       }

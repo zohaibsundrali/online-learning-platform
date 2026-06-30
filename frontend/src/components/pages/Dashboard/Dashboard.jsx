@@ -51,6 +51,55 @@ const Dashboard = () => {
   const isMounted = useRef(true);
   const fetchCount = useRef(0);
 
+  // ✅ Helper function to determine course status
+  const getCourseStatus = (course) => {
+    // If course has status field and it's 'completed'
+    if (course.status === 'completed' || course.isCompleted === true) {
+      return 'completed';
+    }
+    // If progress is 100, it's completed
+    if (course.progress === 100) {
+      return 'completed';
+    }
+    // If progress is 0, not started
+    if (course.progress === 0) {
+      return 'not-started';
+    }
+    // Otherwise in progress
+    return 'in-progress';
+  };
+
+  // ✅ Get status badge configuration
+  const getStatusBadge = (status) => {
+    const config = {
+      "not-started": {
+        label: "Not Started",
+        color: "text-text bg-text bg-opacity-10",
+        icon: <Clock className="w-3 h-3" />
+      },
+      "in-progress": {
+        label: "In Progress",
+        color: "text-primary bg-primary bg-opacity-10",
+        icon: <Play className="w-3 h-3" />
+      },
+      "completed": {
+        label: "Completed",
+        color: "text-accent bg-accent bg-opacity-10",
+        icon: <CheckCircle className="w-3 h-3" />
+      }
+    };
+
+    return config[status] || config["not-started"];
+  };
+
+  // ✅ Get count of courses by status
+  const getStatusCount = (status) => {
+    return enrolledCourses.filter(c => {
+      const courseStatus = getCourseStatus(c);
+      return courseStatus === status;
+    }).length;
+  };
+
   // ✅ Fetch dashboard data
   const fetchDashboardData = useCallback(async () => {
     if (fetchCount.current > 0) {
@@ -82,24 +131,33 @@ const Dashboard = () => {
         console.log("📚 Courses found:", courses.length);
 
         if (isMounted.current) {
-          // ✅ Add status to each course
+          // ✅ Add status to each course using the enhanced function
           const coursesWithStatus = courses.map(course => ({
             ...course,
-            status: getCourseStatus(course.progress)
+            status: getCourseStatus(course),
+            progress: course.progress || 0,
           }));
+
+          console.log("📊 Courses with status:", coursesWithStatus.map(c => ({ 
+            title: c.title, 
+            progress: c.progress, 
+            status: c.status 
+          })));
 
           setEnrolledCourses(coursesWithStatus);
           setFilteredCourses(coursesWithStatus);
 
           // ✅ Calculate detailed stats
           const total = courses.length;
-          const completed = courses.filter(c => c.progress === 100).length;
-          const inProgress = courses.filter(c => c.progress > 0 && c.progress < 100).length;
-          const notStarted = courses.filter(c => c.progress === 0).length;
+          const completed = courses.filter(c => c.progress === 100 || c.status === 'completed' || c.isCompleted === true).length;
+          const inProgress = courses.filter(c => c.progress > 0 && c.progress < 100 && c.status !== 'completed').length;
+          const notStarted = courses.filter(c => c.progress === 0 && c.status !== 'completed').length;
           const totalHours = courses.reduce((sum, c) => sum + (c.totalDuration || 0), 0) / 60;
           const avgProgress = total > 0
             ? Math.round(courses.reduce((sum, c) => sum + (c.progress || 0), 0) / total)
             : 0;
+
+          console.log("📊 Stats:", { total, completed, inProgress, notStarted, avgProgress });
 
           setStats({
             totalCourses: total,
@@ -148,13 +206,6 @@ const Dashboard = () => {
       }
     }
   }, [toast]);
-
-  // ✅ Helper function to determine course status
-  const getCourseStatus = (progress) => {
-    if (progress === 100) return "completed";
-    if (progress === 0) return "not-started";
-    return "in-progress";
-  };
 
   // ✅ Filter and sort courses
   useEffect(() => {
@@ -272,35 +323,10 @@ const Dashboard = () => {
     }
   };
 
-  const getStatusBadge = (status) => {
-    const config = {
-      "not-started": {
-        label: "Not Started",
-        color: "text-text bg-text bg-opacity-10",
-        icon: <Clock className="w-3 h-3" />
-      },
-      "in-progress": {
-        label: "In Progress",
-        color: "text-primary bg-primary bg-opacity-10",
-        icon: <Play className="w-3 h-3" />
-      },
-      "completed": {
-        label: "Completed",
-        color: "text-accent bg-accent bg-opacity-10",
-        icon: <CheckCircle className="w-3 h-3" />
-      }
-    };
-
-    return config[status] || config["not-started"];
-  };
-
-  const getStatusCount = (status) => {
-    return enrolledCourses.filter(c => c.status === status).length;
-  };
-
   // ✅ Render course card
   const renderCourseCard = (course) => {
-    const isCompleted = course.progress === 100;
+    // Check if course is completed (either by progress or status)
+    const isCompleted = course.progress === 100 || course.status === 'completed' || course.isCompleted === true;
     const statusInfo = getStatusBadge(course.status);
 
     return (
@@ -329,11 +355,13 @@ const Dashboard = () => {
             <div className="mt-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-text text-opacity-60">Progress</span>
-                <span className="text-primary font-semibold">{course.progress || 0}%</span>
+                <span className={`font-semibold ${isCompleted ? 'text-accent' : 'text-primary'}`}>
+                  {course.progress || 0}%
+                </span>
               </div>
               <div className="w-full h-1.5 bg-background rounded-full overflow-hidden mt-1">
                 <div
-                  className="h-full bg-primary rounded-full transition-all duration-500"
+                  className={`h-full rounded-full transition-all duration-500 ${isCompleted ? 'bg-accent' : 'bg-primary'}`}
                   style={{ width: `${course.progress || 0}%` }}
                 />
               </div>
@@ -634,7 +662,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Sidebar - Keep as is */}
+            {/* Sidebar */}
             <div className="space-y-6">
               {/* Quick Stats */}
               <div className="card">
@@ -659,7 +687,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Upcoming - Keep as is */}
+              {/* Upcoming */}
               <div className="card">
                 <h4 className="font-semibold text-text mb-3 flex items-center space-x-2">
                   <Calendar className="w-4 h-4 text-primary" />
@@ -670,7 +698,7 @@ const Dashboard = () => {
                 </p>
               </div>
 
-              {/* Quick Actions - Keep as is */}
+              {/* Quick Actions */}
               <div className="card">
                 <h4 className="font-semibold text-text mb-3">Quick Actions</h4>
                 <div className="space-y-2">
@@ -694,7 +722,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Courses Tab with Full Filtering */}
+        {/* Courses Tab */}
         {activeTab === "courses" && (
           <div>
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
@@ -807,7 +835,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Progress Tab - Keep as is */}
+        {/* Progress Tab */}
         {activeTab === "progress" && (
           <div>
             <h3 className="text-xl font-semibold text-text mb-6">Learning Progress</h3>
@@ -818,69 +846,74 @@ const Dashboard = () => {
               </div>
             ) : (
               <div className="space-y-6">
-                {enrolledCourses.map((course) => (
-                  <div key={course._id || course.id} className="card">
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between">
-                      <div className="flex-1">
-                        <Link
-                          to={`/course/${course._id || course.id}`}
-                          className="font-semibold text-text hover:text-primary transition-colors duration-300"
-                        >
-                          {course.title || "Untitled Course"}
-                        </Link>
-                        <p className="text-sm text-text text-opacity-60">
-                          {course.moduleCount || 0} modules • {Math.round((course.totalDuration || 0) / 60)} hours
-                        </p>
-                        <div className="mt-2">
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadge(course.status).color}`}>
-                            {getStatusBadge(course.status).label}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-4 mt-3 md:mt-0">
-                        <div className="text-right">
-                          <div className="text-sm font-semibold text-primary">{course.progress || 0}%</div>
-                          <div className="w-32 h-2 bg-background rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-primary rounded-full transition-all duration-500"
-                              style={{ width: `${course.progress || 0}%` }}
-                            />
-                          </div>
-                        </div>
-                        {course.progress === 100 ? (
-                          <div className="flex items-center space-x-2">
-                            <CheckCircle className="w-5 h-5 text-accent" />
-                            <button
-                              onClick={() => handleDownloadCertificate(course.enrollmentId, course.title)}
-                              disabled={downloadingCertificate === course.enrollmentId}
-                              className="text-xs bg-accent text-background px-3 py-1 rounded-full hover:bg-opacity-90 transition-all duration-300 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {downloadingCertificate === course.enrollmentId ? (
-                                <>
-                                  <LoadingSpinner size="sm" />
-                                  <span>Generating...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Award className="w-3 h-3" />
-                                  <span>Get Certificate</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        ) : (
+                {enrolledCourses.map((course) => {
+                  const isCompleted = course.progress === 100 || course.status === 'completed';
+                  return (
+                    <div key={course._id || course.id} className="card">
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between">
+                        <div className="flex-1">
                           <Link
-                            to={`/learning/${course.enrollmentId}`}
-                            className="btn-primary text-sm py-1.5 px-4 flex items-center space-x-1"
+                            to={`/course/${course._id || course.id}`}
+                            className="font-semibold text-text hover:text-primary transition-colors duration-300"
                           >
-                            <Play className="w-3 h-3" />
-                            <span>Continue</span>
+                            {course.title || "Untitled Course"}
                           </Link>
-                        )}
+                          <p className="text-sm text-text text-opacity-60">
+                            {course.moduleCount || 0} modules • {Math.round((course.totalDuration || 0) / 60)} hours
+                          </p>
+                          <div className="mt-2">
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadge(course.status).color}`}>
+                              {getStatusBadge(course.status).label}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-4 mt-3 md:mt-0">
+                          <div className="text-right">
+                            <div className={`text-sm font-semibold ${isCompleted ? 'text-accent' : 'text-primary'}`}>
+                              {course.progress || 0}%
+                            </div>
+                            <div className="w-32 h-2 bg-background rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${isCompleted ? 'bg-accent' : 'bg-primary'}`}
+                                style={{ width: `${course.progress || 0}%` }}
+                              />
+                            </div>
+                          </div>
+                          {isCompleted ? (
+                            <div className="flex items-center space-x-2">
+                              <CheckCircle className="w-5 h-5 text-accent" />
+                              <button
+                                onClick={() => handleDownloadCertificate(course.enrollmentId, course.title)}
+                                disabled={downloadingCertificate === course.enrollmentId}
+                                className="text-xs bg-accent text-background px-3 py-1 rounded-full hover:bg-opacity-90 transition-all duration-300 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {downloadingCertificate === course.enrollmentId ? (
+                                  <>
+                                    <LoadingSpinner size="sm" />
+                                    <span>Generating...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Award className="w-3 h-3" />
+                                    <span>Get Certificate</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <Link
+                              to={`/learning/${course.enrollmentId}`}
+                              className="btn-primary text-sm py-1.5 px-4 flex items-center space-x-1"
+                            >
+                              <Play className="w-3 h-3" />
+                              <span>Continue</span>
+                            </Link>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

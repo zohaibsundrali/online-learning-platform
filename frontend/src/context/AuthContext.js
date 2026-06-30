@@ -8,6 +8,19 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // ✅ Define getDashboardPath as a function
+  const getDashboardPath = (userRole) => {
+    switch (userRole) {
+      case 'instructor':
+        return '/instructor/dashboard';
+      case 'admin':
+        return '/admin/dashboard';
+      case 'student':
+      default:
+        return '/dashboard';
+    }
+  };
+
   // Load user from localStorage on mount
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -15,7 +28,6 @@ export const AuthProvider = ({ children }) => {
     
     if (storedUser && storedToken) {
       setUser(JSON.parse(storedUser));
-      // Validate token by fetching user data
       getCurrentUser();
     } else {
       setLoading(false);
@@ -90,6 +102,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // ✅ Include getDashboardPath in the context value
   const value = {
     user,
     loading,
@@ -98,11 +111,13 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     setUser,
+    getDashboardPath, // ✅ Make sure this is included
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+// ✅ Custom hook to use auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
