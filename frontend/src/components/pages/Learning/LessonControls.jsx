@@ -4,8 +4,7 @@ import {
   ChevronRight, 
   Check, 
   Award,
-  Loader,
-  Play,
+ 
   Lock
 } from 'lucide-react';
 import LoadingSpinner from '../../common/LoadingSpinner/LoadingSpinner';

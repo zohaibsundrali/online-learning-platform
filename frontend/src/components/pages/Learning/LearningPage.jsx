@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  ChevronLeft,
+  
   Menu,
   X,
   ArrowLeft,
@@ -21,7 +21,7 @@ import LessonControls from './LessonControls';
 const LearningPage = () => {
   const { enrollmentId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  
   const toast = useToast();
   
   const [loading, setLoading] = useState(true);
@@ -262,7 +262,7 @@ const LearningPage = () => {
   const isCompleted = currentModule.isCompleted;
   const isLastModule = currentIndex === modules.length - 1;
   const isFirstModule = currentIndex === 0;
-  const allCompleted = modules.every(m => m.isCompleted);
+  // const allCompleted = modules.every(m => m.isCompleted);
   const completedCount = modules.filter(m => m.isCompleted).length;
 
   return (

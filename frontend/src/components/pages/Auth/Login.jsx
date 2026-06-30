@@ -30,7 +30,6 @@ const Login = () => {
   const onSubmit = async (data) => {
     setIsLoading(true);
     const toastId = toast.loading('Logging in...');
-
     try {
       const result = await login({
         email: data.email,
@@ -83,7 +82,7 @@ const Login = () => {
               validation={{
                 required: 'Email is required',
                 pattern: {
-                  value: /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+                  value: /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
                   message: 'Please enter a valid email',
                 },
               }}

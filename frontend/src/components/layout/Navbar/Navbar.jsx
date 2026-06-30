@@ -5,13 +5,13 @@ import {
   Menu, 
   X, 
   BookOpen, 
-  User, 
+ 
   LogOut, 
   Home,
-  GraduationCap,
+
   LayoutDashboard,
   PlusCircle,
-  Users,
+ 
   Settings
 } from 'lucide-react';
 
@@ -60,7 +60,7 @@ const Navbar = () => {
     return [];
   };
 
-  const roleLinks = getRoleLinks();
+ 
 
   return (
     <nav className="bg-card border-b border-border sticky top-0 z-50 backdrop-blur-sm bg-opacity-95">

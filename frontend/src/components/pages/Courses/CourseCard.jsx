@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Star, Users, Clock, BookOpen } from 'lucide-react';
+import { Star, Users, Clock } from 'lucide-react';
 
 const CourseCard = ({ course }) => {
   const { _id, title, description, thumbnail, category, level, rating, studentsEnrolled, price, instructor, totalDuration } = course;

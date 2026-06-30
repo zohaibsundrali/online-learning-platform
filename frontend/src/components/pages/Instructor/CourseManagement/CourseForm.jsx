@@ -5,13 +5,13 @@ import { useToast } from '../../../common/Toast/ToastProvider';
 import LoadingSpinner from '../../../common/LoadingSpinner/LoadingSpinner';
 import {
   Plus,
-  Trash2,
+
   Upload,
   X,
-  GripVertical,
+
   ChevronDown,
   ChevronUp,
-  Image,
+ 
 } from 'lucide-react';
 import axiosInstance from '../../../../api/axios';
 
@@ -31,7 +31,7 @@ const CourseForm = () => {
     control,
     handleSubmit,
     setValue,
-    watch,
+    
     formState: { errors },
   } = useForm({
     defaultValues: {

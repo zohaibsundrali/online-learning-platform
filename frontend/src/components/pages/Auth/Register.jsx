@@ -5,7 +5,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../common/Toast/ToastProvider';
 import Input from '../../common/Input/Input';
 import LoadingSpinner from '../../common/LoadingSpinner/LoadingSpinner';
-import { BookOpen, User, Mail, Lock, CheckCircle, GraduationCap, Users } from 'lucide-react';
+import { BookOpen,  CheckCircle, GraduationCap, Users } from 'lucide-react';
 
 const Register = () => {
   const { register: registerUser, user, getDashboardPath } = useAuth();
@@ -129,7 +129,7 @@ const Register = () => {
               validation={{
                 required: 'Email is required',
                 pattern: {
-                  value: /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+                  value: /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
                   message: 'Please enter a valid email',
                 },
               }}
