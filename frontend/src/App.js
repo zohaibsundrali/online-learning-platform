@@ -21,6 +21,15 @@ import InstructorDashboard from './components/pages/Instructor/Dashboard/Instruc
 import CourseForm from './components/pages/Instructor/CourseManagement/CourseForm';
 import CourseAnalytics from './components/pages/Instructor/CourseManagement/CourseAnalytics';
 
+//Admin Pages 
+import AdminDashboard from './components/pages/Admin/Dashboard/Dashboard';
+import Users from './components/pages/Admin/Users/Users';
+import Courses from './components/pages/Admin/Courses/Courses';
+import Categories from './components/pages/Admin/Categories/Categories';
+import Enrollments from './components/pages/Admin/Enrollments/Enrollments';
+import Notifications from './components/pages/Admin/Notifications/Notifications';
+
+
 function App() {
   return (
     <AuthProvider>
@@ -67,6 +76,41 @@ function App() {
                 <CourseAnalytics />
               </RoleBasedRoute>
             } />
+
+            <Route path="/admin/*" element={
+              <RoleBasedRoute allowedRoles={['admin']}>
+                <AdminDashboard />
+              </RoleBasedRoute>
+            } />
+            <Route path="/admin/users" element={
+  <RoleBasedRoute allowedRoles={['admin']}>
+    <Users />
+  </RoleBasedRoute>
+} />
+
+<Route path="/admin/courses" element={
+  <RoleBasedRoute allowedRoles={['admin']}>
+    <Courses />
+  </RoleBasedRoute>
+} />
+
+<Route path="/admin/categories" element={
+  <RoleBasedRoute allowedRoles={['admin']}>
+    <Categories />
+  </RoleBasedRoute>
+} />
+<Route path="/admin/enrollments" element={
+  <RoleBasedRoute allowedRoles={['admin']}>
+    <Enrollments />
+  </RoleBasedRoute>
+} />
+<Route path="/admin/notifications" element={
+  <RoleBasedRoute allowedRoles={['admin']}>
+    <Notifications />
+  </RoleBasedRoute>
+} />
+
+
           </Routes>
         </Router>
       </ToastProvider>
