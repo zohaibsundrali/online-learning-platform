@@ -37,7 +37,7 @@
     "rules": {
       "react-hooks/exhaustive-deps": "off"
     }
-  },
+  } ,
   "browserslist": {
     "production": [
       ">0.2%",

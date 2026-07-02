@@ -43,8 +43,8 @@ const Footer = () => {
           {/* Brand */}
           <div className="col-span-2 md:col-span-3 lg:col-span-1">
             <Link to="/" className="flex items-center space-x-2 mb-4">
-              <BookOpen className="w-8 h-8 text-blue-600" />
-              <span className="text-2xl font-bold text-blue-600">
+              <BookOpen className="w-8 h-8 text-[#6D28D9]" />
+              <span className="text-2xl font-bold text-[#6D28D9]">
                 LearnHub
               </span>
             </Link>
